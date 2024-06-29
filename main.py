@@ -1,15 +1,13 @@
 
 
-try:
-    import tkinter as tk                # python 3
-    from tkinter import font as tkfont  # python 3
-    from tkinter import messagebox
-    import datetime
-    import schedule
-    import gspread
-except ImportError:
-    import Tkinter as tk     # python 2
-    import tkFont as tkfont  # python 2
+
+import tkinter as tk                # python 3
+from tkinter import font as tkfont  # python 3
+from tkinter import messagebox
+import datetime
+import schedule
+import gspread
+import time
 
 class SampleApp(tk.Tk):
 
@@ -52,8 +50,8 @@ class SampleApp(tk.Tk):
         container.grid_columnconfigure(0, weight=1)
 
         self.frames = {}
-        for F in (StartPage, UserStatusPage, BookInfoPage, AllBooksPage, MainUserPage,
-                  BorrowBookPage, ReturnBookPage):
+        for F in (StartPage, UserStatusPage, BookInfoPage, MainUserPage,
+                  BorrowBookPage, ReturnBookPage, LoadingPage):
             page_name = F.__name__
             frame = F(parent=container, controller=self)
             self.frames[page_name] = frame
@@ -122,50 +120,6 @@ class SampleApp(tk.Tk):
 
 
 
-    def book_select(self, event):
-        listbox = self.frames["AllBooksPage"].all_books_listbox
-        selected_book_line = listbox.get(listbox.curselection()[0])
-
-        # Extract the book's name from the list item:
-
-        # Split the string by ':'
-        parts = selected_book_line.split(':')
-        # Extract the second element after removing leading/trailing spaces
-        selected_book_name = parts[1].strip()
-
-        self.show_book_info_page(book_name=selected_book_name, prev_page="AllBooksPage")
-
-
-
-
-
-
-    def goto_all_books_page(self):
-        listbox = self.frames["AllBooksPage"].all_books_listbox
-        listbox.delete(0, 'end')
-        # Get the Books Table from the datasheet database:
-        self.Books = self.db.worksheet("Books").get_all_records()
-
-        # we need to prevent duplicates in the list since each book can have many copies:
-        unique_keys = set()
-        for b in self.Books:
-            # Create a tuple to represent the key combination (immutable for set)
-            key = str(b['book_name'])
-            unique_keys.add(key)
-
-        # Insert the unique pairs
-        for key in unique_keys:
-            listbox.insert('end', " Book Name: " + key)
-        self.show_frame("AllBooksPage")
-
-
-
-
-
-
-
-
-
 
 
     def goto_user_status_page(self, user_id, prev_page):
@@ -179,49 +133,6 @@ class SampleApp(tk.Tk):
                 listbox.insert('end', "Book Name: " + str(t['book_name']) + " Date: " + str(t['date']))
         self.frames["UserStatusPage"].back_page = prev_page
         self.show_frame("UserStatusPage")
-
-
-
-    def show_book_info_page(self, book_name, prev_page):
-        book_info = None
-        # Get Books Table from Google Sheets:
-        self.Books = self.db.worksheet("Books").get_all_records()
-        self.Transactions = self.db.worksheet("Transactions").get_all_records()
-
-        for b in self.Books:
-            # catch the first copy of the book
-            if book_name == str(b['book_name']):
-                book_info = b
-        if book_info is None:
-            # Book was not found!
-            messagebox.showerror("Error", "book does not exist")
-            return
-
-        # Prepare Info Page Before Showing it:
-        self.frames["BookInfoPage"].book_name_label.config(text=book_info['book_name'])
-        self.frames["BookInfoPage"].back_page = prev_page
-
-
-        # find number of available copies of the book in the library:
-        total_count = 0
-        for b in self.Books:
-            if book_name == str(b['book_name']):
-                total_count+=1
-        borrowed_count = 0
-        for t in self.Transactions:
-            if book_name == str(t['book_name']):
-                borrowed_count+=1
-        available_count = total_count - borrowed_count
-        self.frames["BookInfoPage"].available_copies_label.config(text=str(available_count))
-
-        self.show_frame("BookInfoPage")
-
-
-
-
-
-
-
 
 
 
@@ -253,6 +164,9 @@ class SampleApp(tk.Tk):
             return
         TransactionsTable.delete_rows(index_to_delete+2, index_to_delete+2)
         messagebox.showinfo("Success", "Book Returned Successfully")
+        self.frames["ReturnBookPage"].barcode_entry.delete(0, tk.END)
+        self.frames["ReturnBookPage"].barcode_entry.focus_set()
+
 
 
     def borrow_book(self, barcode, user_id):
@@ -272,9 +186,9 @@ class SampleApp(tk.Tk):
             return
         for t in self.Transactions:
             if str(t['barcode']) == barcode:
-                messagebox.showerror("Error", "This Book Copy has not been returned yet")
                 self.frames['BorrowBookPage'].barcode_entry.delete(0, tk.END)
                 self.frames['BorrowBookPage'].barcode_entry.focus_set()
+                messagebox.showerror("Error", "This Book Copy has not been returned yet")
                 return
             if str(t['book_name']) == str(book_info['book_name']) and str(t['user_id']) == user_id:
                 messagebox.showerror("Error", "You already borrowed a copy of this Book")
@@ -290,6 +204,8 @@ class SampleApp(tk.Tk):
         TransactionsWorkSheet = self.db.worksheet("Transactions")
         TransactionsWorkSheet.append_row(new_row_data)
         messagebox.showinfo("Success", "Transaction success")
+        self.frames["BorrowBookPage"].barcode_entry.delete(0, tk.END)
+        self.frames["BorrowBookPage"].barcode_entry.focus_set()
 
 
 
@@ -342,11 +258,6 @@ class MainUserPage(tk.Frame):
         subtitle_label2 = tk.Label(self, text="Book Management", font=controller.subtitle_font)
         subtitle_label2.pack(side="top", fill="x", pady=10)
 
-
-        all_books_button = tk.Button(self, text="All Books",
-                                     command=lambda: controller.goto_all_books_page(),
-                                     font=controller.normal_font)
-        all_books_button.pack(pady=5)
 
         borrow_book_button = tk.Button(self, text="Borrow a Book",
                                        command=lambda: controller.goto_borrow_book_page(user_id=self.user_id),
@@ -443,6 +354,19 @@ class BookInfoPage(tk.Frame):
 
 
 
+class LoadingPage(tk.Frame):
+
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+        self.controller = controller
+        title_label = tk.Label(self, text="Loading, Please Wait...", font=controller.title_font)
+        title_label.pack(side="top", fill="x", pady=10)
+
+
+
+
+
+
 class BorrowBookPage(tk.Frame): # for the user
 
     def __init__(self, parent, controller):
@@ -512,43 +436,6 @@ class ReturnBookPage(tk.Frame): # for the user
         self.controller.return_book(self.barcode_entry.get())
 
 
-
-
-
-
-class AllBooksPage(tk.Frame):
-
-    def __init__(self, parent, controller):
-        tk.Frame.__init__(self, parent)
-        self.controller = controller
-        title_label = tk.Label(self, text="All Books", font=controller.title_font)
-        title_label.pack(side="top", fill="x", pady=10)
-
-        self.all_books_listbox = tk.Listbox(
-            self,
-            exportselection=False,
-            height=6,
-            selectmode=tk.SINGLE,
-            font=controller.list_font)
-
-        self.all_books_listbox.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
-
-        # link a scrollbar to a list
-        scrollbar = tk.Scrollbar(
-            self.all_books_listbox,
-            orient=tk.VERTICAL,
-            command=self.all_books_listbox.yview
-        )
-
-        self.all_books_listbox['yscrollcommand'] = scrollbar.set
-
-        scrollbar.pack(side=tk.RIGHT, fill=tk.BOTH)
-
-        self.all_books_listbox.bind('<<ListboxSelect>>', controller.book_select)
-
-        button = tk.Button(self, text="Go Back",
-                           command=lambda: controller.show_frame("MainUserPage"))
-        button.pack()
 
 
 
