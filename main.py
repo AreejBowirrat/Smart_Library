@@ -71,7 +71,7 @@ class SampleApp(tk.Tk):
 
 
     def convert_string(self, s):
-        if s[0] == ";" or s[0] == "?" or s[0] == "+":
+        if not s[0].isnumeric():
             substring = s[1:10]
             result = substring
             return result
