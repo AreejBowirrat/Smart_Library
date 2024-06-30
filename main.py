@@ -53,7 +53,7 @@ class SampleApp(tk.Tk):
         container.grid_columnconfigure(0, weight=1)
 
         self.frames = {}
-        for F in (StartPage, UserStatusPage, BookInfoPage, MainUserPage,
+        for F in (StartPage, UserStatusPage, MainUserPage,
                   BorrowBookPage, ReturnBookPage, LoadingPage, IDScanLoadingPage,
                   BorrowBookLoadingPage, ReturnBookLoadingPage, TransactionsLoadingPage):
             page_name = F.__name__
@@ -358,37 +358,6 @@ class UserStatusPage(tk.Frame):
                            command=lambda: controller.show_frame(self.back_page))
         back_button.pack()
 
-
-
-
-
-class BookInfoPage(tk.Frame):
-
-    def __init__(self, parent, controller):
-        tk.Frame.__init__(self, parent)
-        self.controller = controller
-        title_label = tk.Label(self, text="Book Info:", font=controller.title_font)
-        title_label.pack(side="top", fill="x", pady=10)
-
-        subtitle_label1 = tk.Label(self, text="Book Name:", font=controller.subtitle_font)
-        subtitle_label1.pack(side="top", fill="x", pady=7)
-
-        #self.course = None
-        self.book_name_label = tk.Label(self, text="", font=controller.normal_font)
-        self.book_name_label.pack(side="top", fill="x", pady=7)
-
-
-        subtitle_label4 = tk.Label(self, text="Available Copies:", font=controller.subtitle_font)
-        subtitle_label4.pack(side="top", fill="x", pady=7)
-
-        self.available_copies_label = tk.Label(self, text="", font=controller.normal_font)
-        self.available_copies_label.pack(side="top", fill="x", pady=8)
-
-
-        self.back_page = None
-        back_button = tk.Button(self, text="Go Back",
-                           command=lambda: controller.show_frame(self.back_page))
-        back_button.pack()
 
 
 
