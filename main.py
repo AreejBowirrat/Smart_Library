@@ -1,13 +1,15 @@
 
-
-
 import tkinter as tk                # python 3
 from tkinter import font as tkfont  # python 3
 from tkinter import messagebox
 import datetime
 import schedule
 import gspread
+import pandas as pd
+from openpyxl import load_workbook
+import csv
 import time
+
 
 class SampleApp(tk.Tk):
 
@@ -22,9 +24,10 @@ class SampleApp(tk.Tk):
         self.gc = gspread.service_account(
             filename="./service_account.json")
         self.db = self.gc.open_by_url(self.db_url)
-        # Scheduled System Backup:
 
-        schedule.every().hour.do(self.backup_data)
+        # Scheduled System Backup:
+        #self.backup_data()
+        #schedule.every().hour.do(self.backup_data)
 
         self.title_font = tkfont.Font(family='Helvetica', size=18, weight="bold", slant="italic")
         self.subtitle_font = tkfont.Font(family='Helvetica', size=13, weight="bold", slant="italic")
@@ -51,7 +54,8 @@ class SampleApp(tk.Tk):
 
         self.frames = {}
         for F in (StartPage, UserStatusPage, BookInfoPage, MainUserPage,
-                  BorrowBookPage, ReturnBookPage, LoadingPage):
+                  BorrowBookPage, ReturnBookPage, LoadingPage, IDScanLoadingPage,
+                  BorrowBookLoadingPage, ReturnBookLoadingPage, TransactionsLoadingPage):
             page_name = F.__name__
             frame = F(parent=container, controller=self)
             self.frames[page_name] = frame
@@ -61,8 +65,10 @@ class SampleApp(tk.Tk):
             # will be the one that is visible.
             frame.grid(row=0, column=0, sticky="nsew")
 
+
         self.frames["StartPage"].username_entry.focus_set()
         self.show_frame("StartPage")
+
 
     def convert_string(self, s):
         if s[0] == ";" or s[0] == "?" or s[0] == "+":
@@ -72,8 +78,27 @@ class SampleApp(tk.Tk):
         else:
             return s
 
+
+
     def backup_data(self):
-        # Backup data on the Excel file on the Cloud
+        self.show_frame('LoadingPage')
+        sheets = ["Users", "Books", "Transactions"]
+        google_sheets = [(sheet_name, self.db.worksheet(sheet_name).id) for sheet_name in sheets]
+        excel_file = "./local_db.xlsx"  # Replace with path to your Excel file
+
+        with pd.ExcelWriter(
+                path=excel_file,
+                mode="w",
+                engine="openpyxl",
+        ) as writer:
+            for google_sheet in google_sheets:
+                sheet_url = f"https://docs.google.com/spreadsheets/d/144bmhnqKytJMZwtBWR0IJ_UFbGy4gWWqukEfHV6laEU/" \
+                            f"export?format=csv&gid={google_sheet[1]}"
+                df = pd.read_csv(sheet_url)
+                df.to_excel(writer, sheet_name=google_sheet[0], index=False)
+
+
+        print("Data transferred successfully!")
         pass
 
 
@@ -83,6 +108,9 @@ class SampleApp(tk.Tk):
         '''Show a frame for the given page name'''
         frame = self.frames[page_name]
         frame.tkraise()
+        self.update()
+
+
 
     def validate_login(self, id):
 
@@ -92,7 +120,7 @@ class SampleApp(tk.Tk):
 
         id = self.convert_string(id)
 
-
+        self.show_frame('IDScanLoadingPage')
         # check if the user exists:
         # get users list from cloud database:
         self.Users = self.db.worksheet("Users").get_all_records()
@@ -104,6 +132,7 @@ class SampleApp(tk.Tk):
         if user_info is None:
             messagebox.showerror("Error", "User does not exist")
             self.frames['StartPage'].username_entry.delete(0, tk.END)
+            self.show_frame('StartPage')
         else:
             self.frames['MainUserPage'].user_id = str(user_info['user_id'])
             self.show_frame("MainUserPage")
@@ -121,8 +150,9 @@ class SampleApp(tk.Tk):
 
 
 
-
     def goto_user_status_page(self, user_id, prev_page):
+        self.show_frame('TransactionsLoadingPage')
+
         listbox = self.frames["UserStatusPage"].user_transactions_listbox
         listbox.delete(0, 'end')
         # Get Transactions  Table from Google Sheets:
@@ -150,6 +180,8 @@ class SampleApp(tk.Tk):
         self.show_frame("ReturnBookPage")
 
     def return_book(self, barcode):
+        self.show_frame('ReturnBookLoadingPage')
+
         self.Transactions = self.db.worksheet("Transactions").get_all_records()
         TransactionsTable = self.db.worksheet("Transactions")
         index_to_delete = -1
@@ -161,15 +193,19 @@ class SampleApp(tk.Tk):
             messagebox.showerror("Error", "This copy isn't borrowed")
             self.frames['ReturnBookPage'].barcode_entry.delete(0, tk.END)
             self.frames['ReturnBookPage'].barcode_entry.focus_set()
+            self.show_frame('ReturnBookPage')
             return
         TransactionsTable.delete_rows(index_to_delete+2, index_to_delete+2)
         messagebox.showinfo("Success", "Book Returned Successfully")
         self.frames["ReturnBookPage"].barcode_entry.delete(0, tk.END)
         self.frames["ReturnBookPage"].barcode_entry.focus_set()
+        self.show_frame('ReturnBookPage')
 
 
 
     def borrow_book(self, barcode, user_id):
+        self.show_frame('BorrowBookLoadingPage')
+
         self.Books = self.db.worksheet("Books").get_all_records()
         self.Transactions = self.db.worksheet("Transactions").get_all_records()
         # Check if the copy is available for borrow:
@@ -183,17 +219,20 @@ class SampleApp(tk.Tk):
             messagebox.showerror("Error", "Book does not belong to the Library")
             self.frames['BorrowBookPage'].barcode_entry.delete(0, tk.END)
             self.frames['BorrowBookPage'].barcode_entry.focus_set()
+            self.show_frame('BorrowBookPage')
             return
         for t in self.Transactions:
             if str(t['barcode']) == barcode:
                 self.frames['BorrowBookPage'].barcode_entry.delete(0, tk.END)
                 self.frames['BorrowBookPage'].barcode_entry.focus_set()
                 messagebox.showerror("Error", "This Book Copy has not been returned yet")
+                self.show_frame('BorrowBookPage')
                 return
             if str(t['book_name']) == str(book_info['book_name']) and str(t['user_id']) == user_id:
                 messagebox.showerror("Error", "You already borrowed a copy of this Book")
                 self.frames['BorrowBookPage'].barcode_entry.delete(0, tk.END)
                 self.frames['BorrowBookPage'].barcode_entry.focus_set()
+                self.show_frame('BorrowBookPage')
                 return
 
 
@@ -206,6 +245,7 @@ class SampleApp(tk.Tk):
         messagebox.showinfo("Success", "Transaction success")
         self.frames["BorrowBookPage"].barcode_entry.delete(0, tk.END)
         self.frames["BorrowBookPage"].barcode_entry.focus_set()
+        self.show_frame('BorrowBookPage')
 
 
 
@@ -278,7 +318,6 @@ class MainUserPage(tk.Frame):
                                                  prev_page="MainUserPage"),
                                              font=controller.normal_font)
         view_transactions_button.pack(pady=5)
-
 
 
 
@@ -364,6 +403,43 @@ class LoadingPage(tk.Frame):
 
 
 
+class IDScanLoadingPage(tk.Frame):
+
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+        self.controller = controller
+        title_label = tk.Label(self, text="Scanning ID Card, Please Wait...", font=controller.title_font)
+        title_label.pack(side="top", fill="x", pady=10)
+
+
+
+class BorrowBookLoadingPage(tk.Frame):
+
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+        self.controller = controller
+        title_label = tk.Label(self, text="Registering Book Borrow, Please Wait...", font=controller.title_font)
+        title_label.pack(side="top", fill="x", pady=10)
+
+
+
+class ReturnBookLoadingPage(tk.Frame):
+
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+        self.controller = controller
+        title_label = tk.Label(self, text="Registering Book Return, Please Wait...", font=controller.title_font)
+        title_label.pack(side="top", fill="x", pady=10)
+
+
+
+class TransactionsLoadingPage(tk.Frame):
+
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+        self.controller = controller
+        title_label = tk.Label(self, text="Fetching Transactions Data, Please Wait...", font=controller.title_font)
+        title_label.pack(side="top", fill="x", pady=10)
 
 
 
@@ -434,7 +510,6 @@ class ReturnBookPage(tk.Frame): # for the user
 
     def on_enter(self, event):
         self.controller.return_book(self.barcode_entry.get())
-
 
 
 
