@@ -53,7 +53,7 @@ class SampleApp(tk.Tk):
         container.grid_columnconfigure(0, weight=1)
 
         self.frames = {}
-        for F in (StartPage, UserStatusPage, MainUserPage,
+        for F in (StartPage, UserStatusPage, MainUserPage, NotificationPage,
                   BorrowBookPage, ReturnBookPage, LoadingPage, IDScanLoadingPage,
                   BorrowBookLoadingPage, ReturnBookLoadingPage, TransactionsLoadingPage):
             page_name = F.__name__
@@ -115,7 +115,7 @@ class SampleApp(tk.Tk):
     def validate_login(self, id):
 
         if id == "":
-            messagebox.showerror("Error", "Empty Fields")
+            self.show_notification(notification="Empty Fields")
             return
 
         id = self.convert_string(id)
@@ -130,7 +130,7 @@ class SampleApp(tk.Tk):
                 user_info = u
                 break
         if user_info is None:
-            messagebox.showerror("Error", "User does not exist")
+            self.show_notification(notification="User does not exist!")
             self.frames['StartPage'].username_entry.delete(0, tk.END)
             self.show_frame('StartPage')
         else:
@@ -174,10 +174,14 @@ class SampleApp(tk.Tk):
         self.frames["BorrowBookPage"].barcode_entry.focus_set()
         self.show_frame("BorrowBookPage")
 
+
+
     def goto_return_book_page(self):
         self.frames["ReturnBookPage"].barcode_entry.delete(0, tk.END)
         self.frames["ReturnBookPage"].barcode_entry.focus_set()
         self.show_frame("ReturnBookPage")
+
+
 
     def return_book(self, barcode):
         self.show_frame('ReturnBookLoadingPage')
@@ -190,13 +194,13 @@ class SampleApp(tk.Tk):
                 index_to_delete = index
                 break
         if index_to_delete == -1:
-            messagebox.showerror("Error", "This copy isn't borrowed")
+            self.show_notification(notification="This Book Copy Has Not Been Borrowed Before!")
             self.frames['ReturnBookPage'].barcode_entry.delete(0, tk.END)
             self.frames['ReturnBookPage'].barcode_entry.focus_set()
             self.show_frame('ReturnBookPage')
             return
         TransactionsTable.delete_rows(index_to_delete+2, index_to_delete+2)
-        messagebox.showinfo("Success", "Book Returned Successfully")
+        self.show_notification(notification="Book Returned Successfully!")
         self.frames["ReturnBookPage"].barcode_entry.delete(0, tk.END)
         self.frames["ReturnBookPage"].barcode_entry.focus_set()
         self.show_frame('ReturnBookPage')
@@ -216,20 +220,14 @@ class SampleApp(tk.Tk):
                 book_info = b
                 break
         if book_info == None:
-            messagebox.showerror("Error", "Book does not belong to the Library")
+            self.show_notification(notification="Book does not belong to the Library!")
             self.frames['BorrowBookPage'].barcode_entry.delete(0, tk.END)
             self.frames['BorrowBookPage'].barcode_entry.focus_set()
             self.show_frame('BorrowBookPage')
             return
         for t in self.Transactions:
             if str(t['barcode']) == barcode:
-                self.frames['BorrowBookPage'].barcode_entry.delete(0, tk.END)
-                self.frames['BorrowBookPage'].barcode_entry.focus_set()
-                messagebox.showerror("Error", "This Book Copy has not been returned yet")
-                self.show_frame('BorrowBookPage')
-                return
-            if str(t['book_name']) == str(book_info['book_name']) and str(t['user_id']) == user_id:
-                messagebox.showerror("Error", "You already borrowed a copy of this Book")
+                self.show_notification(notification="This Book Copy has not been returned yet!")
                 self.frames['BorrowBookPage'].barcode_entry.delete(0, tk.END)
                 self.frames['BorrowBookPage'].barcode_entry.focus_set()
                 self.show_frame('BorrowBookPage')
@@ -242,11 +240,17 @@ class SampleApp(tk.Tk):
         new_row_data = [user_id, barcode, book_info['book_name'], transaction_date_str]
         TransactionsWorkSheet = self.db.worksheet("Transactions")
         TransactionsWorkSheet.append_row(new_row_data)
-        messagebox.showinfo("Success", "Transaction success")
+        self.show_notification(notification="Book Borrowed Successfully :)")
         self.frames["BorrowBookPage"].barcode_entry.delete(0, tk.END)
         self.frames["BorrowBookPage"].barcode_entry.focus_set()
         self.show_frame('BorrowBookPage')
 
+
+
+    def show_notification(self, notification):
+        self.frames['NotificationPage'].title_label.config(text=notification)
+        self.show_frame('NotificationPage')
+        time.sleep(2)
 
 
 
@@ -399,6 +403,17 @@ class ReturnBookLoadingPage(tk.Frame):
         self.controller = controller
         title_label = tk.Label(self, text="Registering Book Return, Please Wait...", font=controller.title_font)
         title_label.pack(side="top", fill="x", pady=10)
+
+
+
+class NotificationPage(tk.Frame):
+
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+        self.controller = controller
+        self.title_label = tk.Label(self, text="", font=controller.title_font)
+        self.title_label.pack(side="top", fill="x", pady=10)
+
 
 
 
