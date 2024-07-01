@@ -11,6 +11,7 @@ import csv
 import time
 
 
+
 class SampleApp(tk.Tk):
 
     def __init__(self, *args, **kwargs):
@@ -116,6 +117,7 @@ class SampleApp(tk.Tk):
 
         if id == "":
             self.show_notification(notification="Empty Fields")
+            self.show_frame('StartPage')
             return
 
         id = self.convert_string(id)
@@ -257,29 +259,59 @@ class SampleApp(tk.Tk):
 
 class StartPage(tk.Frame):
     ''' Login Page: '''
+
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        label = tk.Label(self, text="Please Scan your ID Card", font=controller.title_font)
-        label.pack(side="top", fill="x", pady=10)
 
-        username_label = tk.Label(self, text="User ID:", font=controller.subtitle_font)
-        username_label.pack()
+        # Label with larger font and padding
+        label = tk.Label(self, text="Please Scan your ID Card or Enter Manually", font=("Arial", 18, "bold"))
+        label.pack(side="top", fill="x", pady=20)  # Increased padding
 
-        self.username_entry = tk.Entry(self)
-        self.username_entry.pack()
+        # Username label with smaller font
+        username_label = tk.Label(self, text="User ID:", font=("Helvetica", 14))
+        username_label.pack(pady=3)
 
+        # Entry with increased width
+        self.username_entry = tk.Entry(self, width=25, font=("Helvetica", 16))
+        self.username_entry.pack(pady=10)
 
-        login_button = tk.Button(self, text="Login",
-                                 command=lambda: controller.validate_login(self.username_entry.get()))
-        login_button.pack()
 
         # Bind the Enter key to the username_entry widget
         self.username_entry.bind("<Return>", self.on_enter)
 
+        # Create the numpad layout with larger font and padding
+        button_frame = tk.Frame(self)
+        button_frame.pack(side="top", pady=10)
+        button_grid = [
+            ['   7   ', '  8  ', '   9   '],
+            ['   4   ', '  5  ', '   6   '],
+            ['   1   ', '  2  ', '   3   '],
+            ['   0   ', 'Clear', 'Login']  # Add '.' for decimal input if needed
+        ]
+
+        for row_index, row in enumerate(button_grid):
+            for col_index, number in enumerate(row):
+                if number == 'Clear':
+                    button = tk.Button(button_frame, text=number, command=self.handle_clear_button_click,
+                                       font=("Helvetica", 20))
+                elif number == 'Login':
+                    button = tk.Button(button_frame, text=number, font=("Helvetica", 20),
+                              command=lambda: controller.validate_login(self.username_entry.get()))
+                else:
+                    button = tk.Button(button_frame, text=number, command=lambda n=number: self.handle_num_button_click(n),
+                                       font=("Helvetica", 20))
+                button.grid(row=row_index, column=col_index, sticky="nsew", padx=5, pady=5)  # Increased padding between buttons
+
     def on_enter(self, event):
         self.controller.validate_login(self.username_entry.get())
 
+    # Define functions for numpad interaction
+    def handle_num_button_click(self, number):
+        self.username_entry.insert(tk.END, number.strip())
+
+    def handle_clear_button_click(self):
+        self.username_entry.delete(0, tk.END)
 
 
 
@@ -293,25 +325,18 @@ class MainUserPage(tk.Frame):
         title_label = tk.Label(self, text="Hello, user", font=controller.title_font)
         title_label.pack(side="top", fill="x", pady=10)
 
-        logout_button = tk.Button(self, text="Logout",
-                                  command=lambda: controller.logout(),
-                                  font=controller.normal_font)
-        logout_button.pack(pady=3)
-
-
-        subtitle_label2 = tk.Label(self, text="Book Management", font=controller.subtitle_font)
-        subtitle_label2.pack(side="top", fill="x", pady=10)
 
 
         borrow_book_button = tk.Button(self, text="Borrow a Book",
                                        command=lambda: controller.goto_borrow_book_page(user_id=self.user_id),
-                                       font=controller.normal_font)
-        borrow_book_button.pack(pady=5)
+                                       font=('Helvetica', 17, 'bold'))
+        borrow_book_button.pack(pady=10)
+
 
         return_book_button = tk.Button(self, text="Return a Book",
                                        command=lambda: controller.goto_return_book_page(),
-                                       font=controller.normal_font)
-        return_book_button.pack(pady=5)
+                                       font=('Helvetica', 17, 'bold'))
+        return_book_button.pack(pady=10)
 
 
 
@@ -320,11 +345,13 @@ class MainUserPage(tk.Frame):
                                              command=lambda: controller.goto_user_status_page(
                                                  user_id=self.user_id,
                                                  prev_page="MainUserPage"),
-                                             font=controller.normal_font)
-        view_transactions_button.pack(pady=5)
+                                             font=('Helvetica', 17, 'bold'))
+        view_transactions_button.pack(pady=10)
 
-
-
+        logout_button = tk.Button(self, text="Logout",
+                                  command=lambda: controller.logout(),
+                                  font=('Helvetica', 14))
+        logout_button.pack(pady=5)
 
 
 
@@ -436,21 +463,18 @@ class BorrowBookPage(tk.Frame): # for the user
         title_label.pack(side="top", fill="x", pady=10)
 
         subtitle_label = tk.Label(self, text="Please scan the book's barcode using the barcode scanner:",
-                                  font=controller.subtitle_font)
-        subtitle_label.pack(side="top", fill="x", pady=10)
+                                  font=('Helvetica', 16))
+        subtitle_label.pack(side="top", fill="x", pady=5)
 
         self.barcode_entry = tk.Entry(self)
-        self.barcode_entry.pack()
+        self.barcode_entry.pack(pady=10)
 
         self.user_id = ""
-        scan_book_button = tk.Button(self, text="Borrow Book",
-                           command=lambda: controller.borrow_book(barcode=self.barcode_entry.get(), user_id=self.user_id),
-                                     font=controller.normal_font)
-        scan_book_button.pack(pady=10)
+
 
         back_button = tk.Button(self, text="Go Back",
                                   command=lambda: controller.show_frame("MainUserPage"),
-                                font=controller.normal_font)
+                                font=('Helvetica', 13))
         back_button.pack(pady=10)
 
         # Bind the Enter key to the barcode_entry widget
@@ -471,22 +495,17 @@ class ReturnBookPage(tk.Frame): # for the user
         title_label.pack(side="top", fill="x", pady=10)
 
         subtitle_label = tk.Label(self, text="Please scan the book's barcode using the barcode scanner:",
-                                  font=controller.subtitle_font)
+                                  font=('Helvetica', 16))
         subtitle_label.pack(side="top", fill="x", pady=10)
 
         self.barcode_entry = tk.Entry(self)
         self.barcode_entry.pack(pady=10)
 
 
-        scan_book_button = tk.Button(self, text="Return Book",
-                           command=lambda: controller.return_book(barcode=self.barcode_entry.get()),
-                                     font=controller.normal_font)
-        scan_book_button.pack(pady=10)
-
 
         back_button = tk.Button(self, text="Go Back",
                                   command=lambda: controller.show_frame("MainUserPage"),
-                                font=controller.normal_font)
+                                font=('Helvetica', 14))
         back_button.pack(pady=10)
 
         # Bind the Enter key to the barcode_entry widget
