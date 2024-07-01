@@ -18,7 +18,8 @@ class SampleApp(tk.Tk):
         tk.Tk.__init__(self, *args, **kwargs)
 
         # App Window Size:
-        self.geometry("800x600")
+        self.attributes('-fullscreen', True)
+        #self.geometry("800x600")
 
         # Initialize connection to database:
         self.db_url = "https://docs.google.com/spreadsheets/d/144bmhnqKytJMZwtBWR0IJ_UFbGy4gWWqukEfHV6laEU/edit?usp=sharing"
