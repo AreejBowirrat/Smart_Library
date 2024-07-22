@@ -387,8 +387,9 @@ class UserStatusPage(tk.Frame):
 
         self.back_page = "userInfoPage"
         back_button = tk.Button(self, text="Go Back",
-                           command=lambda: controller.show_frame(self.back_page))
-        back_button.pack()
+                           command=lambda: controller.show_frame(self.back_page),
+                                font=('Helvetica', 15))
+        back_button.pack(pady=10)
 
 
 
@@ -409,7 +410,7 @@ class IDScanLoadingPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        title_label = tk.Label(self, text="Scanning ID Card, Please Wait...", font=controller.title_font)
+        title_label = tk.Label(self, text="Logging in, Please Wait...", font=controller.title_font)
         title_label.pack(side="top", fill="x", pady=10)
 
 
@@ -524,7 +525,6 @@ if __name__ == "__main__":
 
     app = SampleApp()
     app.mainloop()
-
 
 
 
