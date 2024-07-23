@@ -1,4 +1,3 @@
-
 import tkinter as tk                # python 3
 from tkinter import font as tkfont  # python 3
 from tkinter import messagebox
@@ -24,7 +23,7 @@ class SampleApp(tk.Tk):
         # Initialize connection to database:
         self.db_url = "https://docs.google.com/spreadsheets/d/144bmhnqKytJMZwtBWR0IJ_UFbGy4gWWqukEfHV6laEU/edit?usp=sharing"
         self.gc = gspread.service_account(
-            filename="./service_account.json")
+            filename="C:/Users/amerm/OneDrive - Technion/Desktop/ioT project/service_account.json")
         self.db = self.gc.open_by_url(self.db_url)
 
         # Scheduled System Backup:
@@ -120,7 +119,6 @@ class SampleApp(tk.Tk):
             self.show_notification(notification="Empty Fields")
             self.show_frame('StartPage')
             return
-
         id = self.convert_string(id)
 
         self.show_frame('IDScanLoadingPage')
@@ -294,11 +292,10 @@ class StartPage(tk.Frame):
         for row_index, row in enumerate(button_grid):
             for col_index, number in enumerate(row):
                 if number == 'Clear':
-                    button = tk.Button(button_frame, text=number, command=self.handle_clear_button_click,
+                    button = tk.Button(button_frame, text=number,bg ='red' , command=self.handle_clear_button_click,
                                        font=("Helvetica", 20))
                 elif number == 'Login':
-                    button = tk.Button(button_frame, text=number, font=("Helvetica", 20),
-                              command=lambda: controller.validate_login(self.username_entry.get()))
+                    button = tk.Button(button_frame, text=number,bg ='green' , font=("Helvetica", 20),command=lambda: controller.validate_login(self.username_entry.get()))
                 else:
                     button = tk.Button(button_frame, text=number, command=lambda n=number: self.handle_num_button_click(n),
                                        font=("Helvetica", 20))
@@ -349,9 +346,7 @@ class MainUserPage(tk.Frame):
                                              font=('Helvetica', 17, 'bold'))
         view_transactions_button.pack(pady=10)
 
-        logout_button = tk.Button(self, text="Logout",
-                                  command=lambda: controller.logout(),
-                                  font=('Helvetica', 14))
+        logout_button = tk.Button(self, text="Logout",bg = 'red' , command=lambda: controller.logout(),font=('Helvetica', 14))
         logout_button.pack(pady=5)
 
 
@@ -525,6 +520,3 @@ if __name__ == "__main__":
 
     app = SampleApp()
     app.mainloop()
-
-
-
