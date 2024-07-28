@@ -249,37 +249,6 @@ class SampleApp(tk.Tk):
         self.show_frame('BorrowBookPage')
         self.reset_logout_timer()
 
-    # def show_logout_warning(self):
-    #     if self.logout_warning_popup is not None:
-    #         self.logout_warning_popup.destroy()  # Ensure only one popup is open
-    #
-    #     self.logout_warning_popup = tk.Toplevel(self)
-    #     self.logout_warning_popup.title("Logout Warning")
-    #     self.logout_warning_popup.geometry("400x200")  # Set the size of the popup window
-    #
-    #     # Add a label with larger font
-    #     warning_label = tk.Label(self.logout_warning_popup,
-    #                              text="You will be logged out in 10 seconds. Do you want to stay logged in?",
-    #                              font=("Helvetica", 14, 'bold'))
-    #     warning_label.pack(pady=20)  # Added padding for better readability
-    #
-    #     # Create a frame for buttons
-    #     button_frame = tk.Frame(self.logout_warning_popup)
-    #     button_frame.pack(pady=10)
-    #
-    #     # 'Yes' button
-    #     yes_button = tk.Button(button_frame, text="Yes", command=self.reset_logout_timer, font=("Helvetica", 12))
-    #     yes_button.pack(side="left", padx=10)
-    #
-    #     # 'No' button
-    #     no_button = tk.Button(button_frame, text="No", command=self.logout, font=("Helvetica", 12))
-    #     no_button.pack(side="right", padx=10)
-    #
-    #     # Automatically log out after 10 seconds if no action is taken
-    #     self.logout_warning_timer = self.after(10000, self.logout)
-    #
-    #     # Ensure that the popup closes when the user logs out or when it is manually closed
-    #     self.logout_warning_popup.protocol("WM_DELETE_WINDOW", self.on_popup_close)
     def show_logout_warning(self):
         if self.logout_warning_popup:
             self.logout_warning_popup.destroy()
@@ -313,11 +282,11 @@ class SampleApp(tk.Tk):
         button_frame = tk.Frame(self.logout_warning_popup)
         button_frame.pack(pady=10)
 
-        yes_button = tk.Button(button_frame, text="Yes", command=self.reset_logout_timer, bg="green",
+        yes_button = tk.Button(button_frame, text="Yes"+" ✅", command=self.reset_logout_timer, fg="green",
                                font=('Helvetica', 26, 'bold'))
         yes_button.pack(side="left", padx=10)
 
-        no_button = tk.Button(button_frame, text="No", command=self.logout, bg="green", font=('Helvetica', 26, 'bold'))
+        no_button = tk.Button(button_frame, text="No"+" ❌", command=self.logout, fg="red", font=('Helvetica', 26, 'bold'))
         no_button.pack(side="left", padx=10)
 
         # Automatically log out after 10 seconds if no action is taken
@@ -403,7 +372,7 @@ class MainUserPage(tk.Frame):
         title_label.pack(side="top", fill="x", pady=(20, 10))
 
         borrow_book_button = tk.Button(self,
-                                       text="Borrow a Book",
+                                       text="Borrow a Book"+"  (➕"+"📖)",
                                        command=lambda: controller.goto_borrow_book_page(user_id=self.user_id),
                                        font=('Helvetica', 26, 'bold'),
                                        width=20,  # Adjust width as needed
@@ -416,7 +385,7 @@ class MainUserPage(tk.Frame):
         borrow_book_button.pack(padx=20, pady=10)  # Add padding around the button
 
         return_book_button = tk.Button(self,
-                                       text="Return a Book",
+                                       text= "Return a Book"+"  (➖"+"📕) ",
                                        command=lambda: controller.goto_return_book_page(),
                                        font=('Helvetica', 26, 'bold'),
                                        width=20,  # Adjust width as needed
@@ -429,18 +398,18 @@ class MainUserPage(tk.Frame):
 
         self.user_id = None
 
-        view_transactions_button = tk.Button(self, text="History Of Books I've Borrowed",
+        view_transactions_button = tk.Button(self, text="History Of Books You've Borrowed"+"  📜",
                                              command=lambda: controller.goto_user_status_page(
                                                  user_id=self.user_id,
                                                  prev_page="MainUserPage"),
                                              font=('Helvetica', 26, 'bold'),
-                                             width=26,  # Adjust width as needed
+                                             width=30,  # Adjust width as needed
                                              height=3,
                                              borderwidth=10,  # Set border width
                                              relief="solid",  # Set border relief style
                                              highlightbackground="blue",  # Set border color
                                              highlightcolor="blue")  # Ensure border color is consistent)  # Adjust height as needed)  # Adjust height as needed
-        view_transactions_button.pack(padx=24, pady=10)  # Add padding around the button
+        view_transactions_button.pack(padx=27, pady=10)  # Add padding around the button
 
         logout_button = tk.Button(self, text='👋 ' + "Logout",
                                   command=lambda: controller.logout(), bg="red",
@@ -453,7 +422,7 @@ class UserStatusPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        title_label = tk.Label(self, text="User Transactions Status", font=('Helvetica', 40, 'bold'))
+        title_label = tk.Label(self, text="Books You've Borrowed", font=('Helvetica', 40, 'bold'))
         title_label.pack(side="top", fill="x", pady=10)
 
         self.user_transactions_listbox = tk.Listbox(
@@ -533,7 +502,7 @@ class TransactionsLoadingPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        title_label = tk.Label(self, text="Fetching Transactions Data, Please Wait...", font=('Helvetica', 40, 'bold'))
+        title_label = tk.Label(self, text="Fetching Data, Please Wait...", font=('Helvetica', 40, 'bold'))
         title_label.pack(side="top", fill="x", pady=(20, 30))
 
 
