@@ -1,4 +1,4 @@
-# Smart Library System
+# Smart Library - IOT Project
 
 ## Overview
 
