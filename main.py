@@ -25,16 +25,15 @@ class SampleApp(tk.Tk):
         self.gc = gspread.service_account(
             filename="./service_account.json")
         self.db = self.gc.open_by_url(self.db_url)
-        self.logout_warning_popup = None  # Initialize as None
-        self.logout_warning_timer = None  # Initialize as None
-        # Scheduled System Backup:
-        # self.backup_data()
-        # schedule.every().hour.do(self.backup_data)
 
-        self.title_font = tkfont.Font(family='Helvetica', size=18, weight="bold", slant="italic")
-        self.subtitle_font = tkfont.Font(family='Helvetica', size=13, weight="bold", slant="italic")
-        self.normal_font = tkfont.Font(family='Helvetica', size=11, weight="bold", slant="italic")
-        self.list_font = tkfont.Font(family='Helvetica', size=14, weight="bold", slant="italic")
+        # Variable to store Job Id of the currently scheduled logout job
+        self.auto_logout_job = ""
+        # Variable that stores the current state of the system to enable/disable auto logouts
+        self.logged_in = False
+
+
+        # Scheduled System Backup ( Copy google sheets to local Excel file):
+        self.after(ms=600*1000, func=self.backup_data)  # backup every 10 minutes
 
         # db:
         self.Users = []
@@ -58,7 +57,8 @@ class SampleApp(tk.Tk):
         self.frames = {}
         for F in (StartPage, UserStatusPage, MainUserPage, NotificationPage,
                   BorrowBookPage, ReturnBookPage, LoadingPage, IDScanLoadingPage,
-                  BorrowBookLoadingPage, ReturnBookLoadingPage, TransactionsLoadingPage):
+                  BorrowBookLoadingPage, ReturnBookLoadingPage, TransactionsLoadingPage,
+                  AutomaticLogOutPage):
             page_name = F.__name__
             frame = F(parent=container, controller=self)
             self.frames[page_name] = frame
@@ -71,9 +71,8 @@ class SampleApp(tk.Tk):
         self.frames["StartPage"].username_entry.focus_set()
         self.show_frame("StartPage")
 
-        # Automatic Logout
-        self.logout_timer = None
-        self.logout_warning_interval = 10000  # 10 seconds
+
+
 
     def convert_string(self, s):
         if not s[0].isnumeric():
@@ -83,25 +82,14 @@ class SampleApp(tk.Tk):
         else:
             return s
 
-    def start_logout_timer(self):
-        self.logout_timer = self.after(self.logout_warning_interval, self.show_logout_warning)
 
-    def reset_logout_timer(self):
-        """Reset the logout timer and close the logout warning popup if open."""
-        if hasattr(self, 'logout_warning_timer'):
-            self.after_cancel(self.logout_warning_timer)  # Cancel automatic logout timer
-        if self.logout_timer:
-            self.after_cancel(self.logout_timer)  # Cancel existing logout warning timer
-        self.start_logout_timer()  # Restart the logout timer
-
-        if hasattr(self, 'logout_warning_popup'):
-            self.logout_warning_popup.destroy()  # Close the popup if it exists
-
-        # if self.logout_timer:
-        #     self.after_cancel(self.logout_timer)
-        # self.start_logout_timer()
 
     def backup_data(self):
+        # Schedule the next backup procedure:
+        self.after(ms=600*1000, func=self.backup_data) # every 10 minutes
+        if self.logged_in:
+            return # don't want to bother the user
+
         self.show_frame('LoadingPage')
         sheets = ["Users", "Books", "Transactions"]
         google_sheets = [(sheet_name, self.db.worksheet(sheet_name).id) for sheet_name in sheets]
@@ -121,11 +109,21 @@ class SampleApp(tk.Tk):
         print("Data transferred successfully!")
         pass
 
+
+
     def show_frame(self, page_name):
         '''Show a frame for the given page name'''
+        # update current page for auto log out
+        if page_name != 'AutomaticLogOutPage':
+            self.frames['AutomaticLogOutPage'].prev_page = page_name
+        # delay the automatic logout since the user is interacting with the app:
+        if page_name != 'StartPage' and self.logged_in is True:
+            self.after_cancel(id=self.auto_logout_job)
+            self.auto_logout_job = self.after(ms=60*1000, func=self.show_logout_warning)
         frame = self.frames[page_name]
         frame.tkraise()
         self.update()
+
 
     def validate_login(self, id):
 
@@ -150,17 +148,26 @@ class SampleApp(tk.Tk):
             self.frames['StartPage'].username_entry.delete(0, tk.END)
             self.show_frame('StartPage')
         else:
+            self.logged_in = True
+            self.auto_logout_job = self.after(ms=60*1000, func=self.show_logout_warning)
             self.frames['MainUserPage'].user_id = str(user_info['user_id'])
             self.show_frame("MainUserPage")
-            self.start_logout_timer()  # Start the logout timer after successful login
+
+
+
 
     def logout(self):
         ''' clear login info from previous users and go back to start page: '''
+        # cancel the currently scheduled auto log out job:
+        self.after_cancel(id=self.auto_logout_job)
+        # update system login status:
+        self.logged_in = False
+        # Log user out and go back to start page:
         self.frames["StartPage"].username_entry.delete(0, tk.END)
         self.frames['StartPage'].username_entry.focus_set()
         self.show_frame("StartPage")
-        if self.logout_timer:
-            self.after_cancel(self.logout_timer)  # Cancel the logout timer if it exists
+
+
 
     def goto_user_status_page(self, user_id, prev_page):
         self.show_frame('TransactionsLoadingPage')
@@ -172,23 +179,20 @@ class SampleApp(tk.Tk):
 
         for t in self.Transactions:
             if str(t['user_id']) == user_id:
-                listbox.insert('end', "Book Name: " + str(t['book_name']) + " Date: " + str(t['date']))
+                listbox.insert('end', "Book Name: " + str(t['book_name']) + "      Date of Borrow: " + str(t['date']))
         self.frames["UserStatusPage"].back_page = prev_page
         self.show_frame("UserStatusPage")
-        self.reset_logout_timer()
 
     def goto_borrow_book_page(self, user_id):
         self.frames["BorrowBookPage"].user_id = user_id
         self.frames["BorrowBookPage"].barcode_entry.delete(0, tk.END)
         self.frames["BorrowBookPage"].barcode_entry.focus_set()
         self.show_frame("BorrowBookPage")
-        self.reset_logout_timer()
 
     def goto_return_book_page(self):
         self.frames["ReturnBookPage"].barcode_entry.delete(0, tk.END)
         self.frames["ReturnBookPage"].barcode_entry.focus_set()
         self.show_frame("ReturnBookPage")
-        self.reset_logout_timer()
 
     def return_book(self, barcode):
         self.show_frame('ReturnBookLoadingPage')
@@ -211,7 +215,8 @@ class SampleApp(tk.Tk):
         self.frames["ReturnBookPage"].barcode_entry.delete(0, tk.END)
         self.frames["ReturnBookPage"].barcode_entry.focus_set()
         self.show_frame('ReturnBookPage')
-        self.reset_logout_timer()
+
+
 
     def borrow_book(self, barcode, user_id):
         self.show_frame('BorrowBookLoadingPage')
@@ -249,59 +254,28 @@ class SampleApp(tk.Tk):
         self.frames["BorrowBookPage"].barcode_entry.delete(0, tk.END)
         self.frames["BorrowBookPage"].barcode_entry.focus_set()
         self.show_frame('BorrowBookPage')
-        self.reset_logout_timer()
+
+
 
     def show_logout_warning(self):
-        if self.logout_warning_popup:
-            self.logout_warning_popup.destroy()
+        # Schedule the next automatic logout job:
+        self.auto_logout_job = self.after(ms=60*1000, func=self.show_logout_warning)
 
-        self.logout_warning_popup = tk.Toplevel(self)
-        self.logout_warning_popup.title("Logout Warning")
+        # Set timer to logout in 15 seconds if we got no user response:
+        self.frames['AutomaticLogOutPage'].sched_logout = self.after(ms=15000, func=self.countdown_logout)
 
-        # Set the popup window to be a smaller size and centered
-        self.logout_warning_popup.geometry("400x200")
-        self.logout_warning_popup.attributes('-topmost', 'true')  # Ensure the popup is always on top
+        # Now show the automatic logout message to user:
+        self.show_frame('AutomaticLogOutPage')
 
-        # Center the popup window
-        window_width = 400
-        window_height = 200
-        screen_width = self.winfo_screenwidth()
-        screen_height = self.winfo_screenheight()
-        x = (screen_width // 2) - (window_width // 2)
-        y = (screen_height // 2) - (window_height // 2)
-        self.logout_warning_popup.geometry(f'{window_width}x{window_height}+{x}+{y}')
+    def countdown_logout(self):
+        self.show_notification(notification="User Logged Out Automatically")
+        self.logout()
 
-        # Create and pack the label with increased font size
-        label1 = tk.Label(self.logout_warning_popup)
-        label1.pack(pady=(30, 10))  # Padding to move label lower
-        label = tk.Label(self.logout_warning_popup,
-                         text="You will be logged out in 10 seconds. Do you want to stay logged in?",
-                         font=('Helvetica', 30, 'bold'))
 
-        label.pack(pady=10)
 
-        # Create and pack 'Yes' and 'No' buttons
-        button_frame = tk.Frame(self.logout_warning_popup)
-        button_frame.pack(pady=10)
-
-        yes_button = tk.Button(button_frame, text="Yes"+" ✅", command=self.reset_logout_timer, fg="green",
-                               font=('Helvetica', 26, 'bold'))
-        yes_button.pack(side="left", padx=10)
-
-        no_button = tk.Button(button_frame, text="No"+" ❌", command=self.logout, fg="red", font=('Helvetica', 26, 'bold'))
-        no_button.pack(side="left", padx=10)
-
-        # Automatically log out after 10 seconds if no action is taken
-        self.logout_warning_timer = self.after(10000, self.logout)
-
-    def on_popup_close(self):
-        """Handle the popup close event."""
-        if hasattr(self, 'logout_warning_timer'):
-            self.after_cancel(self.logout_warning_timer)  # Cancel the automatic logout timer
-        self.logout_warning_popup.destroy()  # Destroy the popup
 
     def show_notification(self, notification):
-        self.frames['NotificationPage'].title_label.config(text=notification, font=('Helvetica', 40, 'bold'))
+        self.frames['NotificationPage'].title_label.config(text=notification, font=('Helvetica', 60, 'bold'))
         self.show_frame('NotificationPage')
         time.sleep(2)
 
@@ -328,7 +302,8 @@ class StartPage(tk.Frame):
         # Bind the Enter key to the username_entry widget
         self.username_entry.bind("<Return>", self.on_enter)
 
-        # Create the numpad layout with larger font and padding
+        # Create the numpad layou
+        # t with larger font and padding
         button_frame = tk.Frame(self)
         button_frame.pack(side="top", pady=10)
         button_grid = [
@@ -400,7 +375,7 @@ class MainUserPage(tk.Frame):
 
         self.user_id = None
 
-        view_transactions_button = tk.Button(self, text="History Of Books You've Borrowed"+"  📜",
+        view_transactions_button = tk.Button(self, text="My Currently Borrowed Books"+"  📜",
                                              command=lambda: controller.goto_user_status_page(
                                                  user_id=self.user_id,
                                                  prev_page="MainUserPage"),
@@ -430,9 +405,8 @@ class UserStatusPage(tk.Frame):
         self.user_transactions_listbox = tk.Listbox(
             self,
             exportselection=False,
-            height=6,
             selectmode=tk.SINGLE,
-            font=controller.list_font)
+            font=('Helvetica', 40, 'bold'))
 
         self.user_transactions_listbox.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
 
@@ -459,8 +433,8 @@ class LoadingPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        title_label = tk.Label(self, text="Loading, Please Wait...", font=('Helvetica', 40, 'bold'))
-        title_label.pack(side="top", fill="x", pady=10)
+        title_label = tk.Label(self, text="Loading, Please Wait...", font=('Helvetica', 50, 'bold'))
+        title_label.pack(side="top", fill="x", pady=100)
 
 
 class IDScanLoadingPage(tk.Frame):
@@ -468,8 +442,8 @@ class IDScanLoadingPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        title_label = tk.Label(self, text="Logging in, Please Wait...", font=('Helvetica', 40, 'bold'))
-        title_label.pack(side="top", fill="x", pady=10)
+        title_label = tk.Label(self, text="Logging in, Please Wait...", font=('Helvetica', 50, 'bold'))
+        title_label.pack(side="top", fill="x", pady=100)
 
 
 class BorrowBookLoadingPage(tk.Frame):
@@ -477,8 +451,8 @@ class BorrowBookLoadingPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        title_label = tk.Label(self, text="Registering Book Borrow, Please Wait...", font=('Helvetica', 40, 'bold'))
-        title_label.pack(side="top", fill="x", pady=10)
+        title_label = tk.Label(self, text="Registering Book Borrow, Please Wait...", font=('Helvetica', 50, 'bold'))
+        title_label.pack(side="top", fill="x", pady=100)
 
 
 class ReturnBookLoadingPage(tk.Frame):
@@ -486,8 +460,8 @@ class ReturnBookLoadingPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        title_label = tk.Label(self, text="Registering Book Return, Please Wait...", font=('Helvetica', 40, 'bold'))
-        title_label.pack(side="top", fill="x", pady=10)
+        title_label = tk.Label(self, text="Registering Book Return, Please Wait...", font=('Helvetica', 50, 'bold'))
+        title_label.pack(side="top", fill="x", pady=100)
 
 
 class NotificationPage(tk.Frame):
@@ -495,8 +469,8 @@ class NotificationPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        self.title_label = tk.Label(self, text="", font=controller.title_font)
-        self.title_label.pack(side="top", fill="x", pady=10)
+        self.title_label = tk.Label(self, text="")
+        self.title_label.pack(side="top", fill="x", pady=100)
 
 
 class TransactionsLoadingPage(tk.Frame):
@@ -504,8 +478,8 @@ class TransactionsLoadingPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        title_label = tk.Label(self, text="Fetching Data, Please Wait...", font=('Helvetica', 40, 'bold'))
-        title_label.pack(side="top", fill="x", pady=(20, 30))
+        title_label = tk.Label(self, text="Fetching Data, Please Wait...", font=('Helvetica', 50, 'bold'))
+        title_label.pack(side="top", fill="x", pady=100)
 
 
 class BorrowBookPage(tk.Frame):  # for the user
@@ -564,17 +538,68 @@ class ReturnBookPage(tk.Frame):  # for the user
         self.controller.return_book(self.barcode_entry.get())
 
 
+class AutomaticLogOutPage(tk.Frame):
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+        self.controller = controller
+
+        line1 = tk.Label(self, text="We Noticed You've Been Logged In For A While,",
+                         font=('Helvetica', 40, 'bold'))
+
+        line1.pack(side="top", fill="x", pady=10)
+
+        line2 = tk.Label(self, text="Are You Still There? Please Confirm Or You'll",
+                         font=('Helvetica', 40, 'bold'))
+
+        line2.pack(side="top", fill="x", pady=10)
+
+        line3 = tk.Label(self, text="Be Logged Out Automatically In 15 Seconds",
+                         font=('Helvetica', 40, 'bold'))
+
+        line3.pack(side="top", fill="x", pady=10)
+
+        # Variable to store the page when this message pops up:
+        self.prev_page = ""
+
+        # Variable to store the scheduled logout job:
+        self.sched_logout = None
+
+        # Create and pack 'Yes' and 'No' buttons
+        button_frame = tk.Frame(self)
+        button_frame.pack(pady=30)
+
+        yes_button = tk.Button(button_frame, text="Yes, still here!" + " ✅", command=self.stay,
+                               fg="green", font=('Helvetica', 30, 'bold'))
+        yes_button.pack(side="left", padx=20)
+
+        no_button = tk.Button(button_frame, text="No, log me out" + " ❌", command=self.leave,
+                              fg="red", font=('Helvetica', 30, 'bold'))
+        no_button.pack(side="right", padx=20)
+
+    def stay(self):
+        # here cancel the scheduled logout
+        self.after_cancel(id=self.sched_logout)
+        self.controller.show_frame(self.prev_page)
+
+    def leave(self):
+        # here cancel the scheduled logout
+        self.after_cancel(id=self.sched_logout)
+        self.controller.logout()
+
+
+
+
 class StatusBar(tk.Frame):
     def __init__(self, parent):
         tk.Frame.__init__(self, parent, height=50)  # Increased height for better visibility
         self.pack(side="top", fill="x")
 
         # Time Label
-        self.time_label = tk.Label(self, font=("Helvetica", 20, "bold"))  # Increased font size
+        self.time_label = tk.Label(self, font=("Helvetica", 30, "bold"))  # Increased font size
         self.time_label.pack(side="left", padx=20)  # Increased padding
 
         # Date Label
-        self.date_label = tk.Label(self, font=("Helvetica", 20, "bold"))  # Increased font size
+        self.date_label = tk.Label(self, font=("Helvetica", 30, "bold"))  # Increased font size
         self.date_label.pack(side="right", padx=20)  # Increased padding
 
         # Update time and date every second
