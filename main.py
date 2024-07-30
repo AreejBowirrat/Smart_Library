@@ -11,8 +11,8 @@ class SampleApp(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
 
-        # App Window Size:
-        self.attributes('-fullscreen', True)
+        # App Window Size:::
+        self.attributes('-fullscreen', True )
         # self.geometry("800x600")
 
         # Initialize connection to database:
@@ -270,8 +270,6 @@ class StartPage(tk.Frame):
         label.pack(side="top", fill="x", pady=20)  # Increased padding
 
         # Username label with smaller font
-        username_label = tk.Label(self, text="ID:", font=("Helvetica", 25, "bold"))
-        username_label.pack(pady=3)
 
         # Entry with increased width
         self.username_entry = tk.Entry(self, width=30, font=("Helvetica", 26))
@@ -285,10 +283,10 @@ class StartPage(tk.Frame):
         button_frame = tk.Frame(self)
         button_frame.pack(side="top", pady=10)
         button_grid = [
-            ['     0     ', '      1      ', '     2     '],
-            ['     3     ', '      4      ', '     5     '],
-            ['     6     ', '      7      ', '     8     '],
-            ['     9      ', 'Clear', 'Login']
+            ['     1     ', '      2      ', '     3     '],
+            ['     4     ', '      5      ', '     6     '],
+            ['     7     ', '      8      ', '     9     '],
+            ['     0      ', 'Clear', 'Login']
         ]
 
         for row_index, row in enumerate(button_grid):
@@ -332,7 +330,7 @@ class MainUserPage(tk.Frame):
                                        text="Borrow" + " (➕📖) ",
                                        command=lambda: controller.goto_borrow_book_page(user_id=self.user_id),
                                        bg="green", fg='white', font=('Helvetica', 20, 'bold'),
-                                       width=15, height=10)
+                                       width=15, height=8)
         borrow_book_button.pack(side="left", padx=10)
 
         # Return button
@@ -340,7 +338,7 @@ class MainUserPage(tk.Frame):
                                        text="Return" + " (➖📗) ",
                                        command=lambda: controller.goto_return_book_page(),
                                        font=('Helvetica', 20, 'bold'),
-                                       bg="red", fg='white', width=15, height=10)
+                                       bg="red", fg='white', width=15, height=8)
         return_book_button.pack(side="left", padx=10)
 
         # History button
@@ -351,7 +349,7 @@ class MainUserPage(tk.Frame):
                                                  prev_page="MainUserPage"),
                                              bg="blue", fg='white',
                                              font=('Helvetica', 20, 'bold'),
-                                             width=15, height=10)
+                                             width=15, height=8)
         view_transactions_button.pack(side="left", padx=10)
 
         # Logout button
