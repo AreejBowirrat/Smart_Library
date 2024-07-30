@@ -136,7 +136,7 @@ class SampleApp(tk.Tk):
         self.Users = self.db.worksheet("Users").get_all_records()
         user_info = None
         for u in self.Users:
-            if str(u['user_id']) == id:
+            if str(u['user_id']) == self.remove_leading(id):
                 user_info = u
                 break
         if user_info is None:
@@ -174,7 +174,7 @@ class SampleApp(tk.Tk):
         self.Transactions = self.db.worksheet("Transactions").get_all_records()
 
         for t in self.Transactions:
-            if str(t['user_id']) == user_id:
+            if str(t['user_id']) == self.remove_leading(user_id):
                 listbox.insert('end', "Book Name: " + str(t['book_name']) + "      Date of Borrow: " + str(t['date']))
         self.frames["UserStatusPage"].back_page = prev_page
         self.show_frame("UserStatusPage")
@@ -234,7 +234,7 @@ class SampleApp(tk.Tk):
             self.show_frame('BorrowBookPage')
             return
         for t in self.Transactions:
-            if str(t['barcode']) == barcode:
+            if str(t['barcode']) == self.remove_leading(barcode):
                 self.show_notification(notification="This Book Copy has not been returned yet!")
                 self.frames['BorrowBookPage'].barcode_entry.delete(0, tk.END)
                 self.frames['BorrowBookPage'].barcode_entry.focus_set()
