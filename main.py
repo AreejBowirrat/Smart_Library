@@ -26,9 +26,8 @@ class SampleApp(tk.Tk):
         # Variable that stores the current state of the system to enable/disable auto logouts
         self.logged_in = False
 
-
         # Scheduled System Backup ( Copy google sheets to local Excel file):
-        self.after(ms=600*1000, func=self.backup_data)  # backup every 10 minutes
+        self.after(ms=600 * 1000, func=self.backup_data)  # backup every 10 minutes
 
         # db:
         self.Users = []
@@ -66,9 +65,6 @@ class SampleApp(tk.Tk):
         self.frames["StartPage"].username_entry.focus_set()
         self.show_frame("StartPage")
 
-
-
-
     def convert_string(self, s):
         if not s[0].isnumeric():
             substring = s[1:10]
@@ -77,13 +73,11 @@ class SampleApp(tk.Tk):
         else:
             return s
 
-
-
     def backup_data(self):
         # Schedule the next backup procedure:
-        self.after(ms=600*1000, func=self.backup_data) # every 10 minutes
+        self.after(ms=600 * 1000, func=self.backup_data)  # every 10 minutes
         if self.logged_in:
-            return # don't want to bother the user
+            return  # don't want to bother the user
 
         self.show_frame('LoadingPage')
         sheets = ["Users", "Books", "Transactions"]
@@ -105,8 +99,6 @@ class SampleApp(tk.Tk):
         print("Data transferred successfully!")
         pass
 
-
-
     def show_frame(self, page_name):
         '''Show a frame for the given page name'''
         # update current page for auto log out
@@ -115,11 +107,10 @@ class SampleApp(tk.Tk):
         # delay the automatic logout since the user is interacting with the app:
         if page_name != 'StartPage' and self.logged_in is True:
             self.after_cancel(id=self.auto_logout_job)
-            self.auto_logout_job = self.after(ms=60*1000, func=self.show_logout_warning)
+            self.auto_logout_job = self.after(ms=60 * 1000, func=self.show_logout_warning)
         frame = self.frames[page_name]
         frame.tkraise()
         self.update()
-
 
     def validate_login(self, id):
 
@@ -145,12 +136,9 @@ class SampleApp(tk.Tk):
             self.show_frame('StartPage')
         else:
             self.logged_in = True
-            self.auto_logout_job = self.after(ms=60*1000, func=self.show_logout_warning)
+            self.auto_logout_job = self.after(ms=60 * 1000, func=self.show_logout_warning)
             self.frames['MainUserPage'].user_id = str(user_info['user_id'])
             self.show_frame("MainUserPage")
-
-
-
 
     def logout(self):
         ''' clear login info from previous users and go back to start page: '''
@@ -162,8 +150,6 @@ class SampleApp(tk.Tk):
         self.frames["StartPage"].username_entry.delete(0, tk.END)
         self.frames['StartPage'].username_entry.focus_set()
         self.show_frame("StartPage")
-
-
 
     def goto_user_status_page(self, user_id, prev_page):
         self.show_frame('TransactionsLoadingPage')
@@ -212,7 +198,7 @@ class SampleApp(tk.Tk):
         self.frames["ReturnBookPage"].barcode_entry.focus_set()
         self.show_frame('ReturnBookPage')
 
-    def remove_leading(self,barcode):
+    def remove_leading(self, barcode):
         return barcode.lstrip('0')
 
     def borrow_book(self, barcode, user_id):
@@ -252,11 +238,9 @@ class SampleApp(tk.Tk):
         self.frames["BorrowBookPage"].barcode_entry.focus_set()
         self.show_frame('BorrowBookPage')
 
-
-
     def show_logout_warning(self):
         # Schedule the next automatic logout job:
-        self.auto_logout_job = self.after(ms=60*1000, func=self.show_logout_warning)
+        self.auto_logout_job = self.after(ms=60 * 1000, func=self.show_logout_warning)
 
         # Set timer to logout in 15 seconds if we got no user response:
         self.frames['AutomaticLogOutPage'].sched_logout = self.after(ms=15000, func=self.countdown_logout)
@@ -268,11 +252,8 @@ class SampleApp(tk.Tk):
         self.show_notification(notification="User Logged Out Automatically")
         self.logout()
 
-
-
-
     def show_notification(self, notification):
-        self.frames['NotificationPage'].title_label.config(text=notification, font=('Helvetica', 25,'bold'))
+        self.frames['NotificationPage'].title_label.config(text=notification, font=('Helvetica', 25, 'bold'))
         self.show_frame('NotificationPage')
         time.sleep(2)
 
@@ -289,7 +270,7 @@ class StartPage(tk.Frame):
         label.pack(side="top", fill="x", pady=20)  # Increased padding
 
         # Username label with smaller font
-        username_label = tk.Label(self, text="ID:", font=("Helvetica", 25,"bold"))
+        username_label = tk.Label(self, text="ID:", font=("Helvetica", 25, "bold"))
         username_label.pack(pady=3)
 
         # Entry with increased width
@@ -307,22 +288,21 @@ class StartPage(tk.Frame):
             ['     0     ', '      1      ', '     2     '],
             ['     3     ', '      4      ', '     5     '],
             ['     6     ', '      7      ', '     8     '],
-            ['     9      ','Clear','Login']
+            ['     9      ', 'Clear', 'Login']
         ]
-
 
         for row_index, row in enumerate(button_grid):
             for col_index, number in enumerate(row):
                 if number == 'Clear':
-                    button = tk.Button(button_frame, text='🗑️ ' + number, bg='red',fg='white',
+                    button = tk.Button(button_frame, text='🗑️ ' + number, bg='red', fg='white',
                                        command=self.handle_clear_button_click,
                                        font=("Helvetica", 20))
                 elif number == 'Login':
-                    button = tk.Button(button_frame, text='🔑 ' + number, bg='green',fg='white', font=("Helvetica", 20),
+                    button = tk.Button(button_frame, text='🔑 ' + number, bg='green', fg='white', font=("Helvetica", 20),
                                        command=lambda: controller.validate_login(self.username_entry.get()))
                 else:
                     button = tk.Button(button_frame, text=number,
-                                       command=lambda n=number: self.handle_num_button_click(n),bg='white',
+                                       command=lambda n=number: self.handle_num_button_click(n), bg='white',
                                        font=("Helvetica", 30))
                 button.grid(row=row_index, column=col_index, sticky="nsew", padx=5,
                             pady=5)  # Increased padding between buttons
@@ -351,7 +331,7 @@ class MainUserPage(tk.Frame):
         borrow_book_button = tk.Button(button_frame,
                                        text="Borrow" + " (➕📖) ",
                                        command=lambda: controller.goto_borrow_book_page(user_id=self.user_id),
-                                       bg="green",fg='white', font=('Helvetica', 20, 'bold'),
+                                       bg="green", fg='white', font=('Helvetica', 20, 'bold'),
                                        width=15, height=10)
         borrow_book_button.pack(side="left", padx=10)
 
@@ -360,23 +340,23 @@ class MainUserPage(tk.Frame):
                                        text="Return" + " (➖📗) ",
                                        command=lambda: controller.goto_return_book_page(),
                                        font=('Helvetica', 20, 'bold'),
-                                       bg="red",fg='white', width=15, height=10)
+                                       bg="red", fg='white', width=15, height=10)
         return_book_button.pack(side="left", padx=10)
 
         # History button
         view_transactions_button = tk.Button(button_frame,
-                                             text="History"+" 📑",
+                                             text="History" + " 📑",
                                              command=lambda: controller.goto_user_status_page(
                                                  user_id=self.user_id,
                                                  prev_page="MainUserPage"),
-                                             bg="blue",fg='white',
+                                             bg="blue", fg='white',
                                              font=('Helvetica', 20, 'bold'),
                                              width=15, height=10)
         view_transactions_button.pack(side="left", padx=10)
 
         # Logout button
-        logout_button = tk.Button(self, text="Logout"+" 👋",
-                                  command=lambda: controller.logout(),bg='black',fg='white',
+        logout_button = tk.Button(self, text="Logout" + " 👋",
+                                  command=lambda: controller.logout(), bg='black', fg='white',
                                   font=('Helvetica', 25, 'bold'))
         logout_button.pack(side="top", pady=(10, 10))
 
@@ -478,7 +458,7 @@ class BorrowBookPage(tk.Frame):  # for the user
         title_label.pack(side="top", fill="x", pady=10)
 
         subtitle_label = tk.Label(self, text="Please scan the book's barcode using the barcode scanner:",
-                                  font=('Helvetica', 20,"bold"))
+                                  font=('Helvetica', 20, "bold"))
         subtitle_label.pack(side="top", fill="x", pady=5)
 
         self.barcode_entry = tk.Entry(self, width=20, font=("Helvetica", 26))
@@ -507,7 +487,7 @@ class ReturnBookPage(tk.Frame):  # for the user
         title_label.pack(side="top", fill="x", pady=10)
 
         subtitle_label = tk.Label(self, text="Please scan the book's barcode using the barcode scanner:",
-                                  font=('Helvetica', 20,'bold'))
+                                  font=('Helvetica', 20, 'bold'))
         subtitle_label.pack(side="top", fill="x", pady=10)
 
         self.barcode_entry = tk.Entry(self, width=20, font=("Helvetica", 26))
@@ -574,8 +554,6 @@ class AutomaticLogOutPage(tk.Frame):
         self.controller.logout()
 
 
-
-
 class StatusBar(tk.Frame):
     def __init__(self, parent):
         tk.Frame.__init__(self, parent, height=50)  # Increased height for better visibility
@@ -583,11 +561,11 @@ class StatusBar(tk.Frame):
 
         # Time Label
         self.time_label = tk.Label(self, font=("Helvetica", 20))  # Increased font size
-        self.time_label.pack(side="left", padx=20, pady=(30,0))  # Increased padding
+        self.time_label.pack(side="left", padx=20, pady=(30, 0))  # Increased padding
 
         # Date Label
         self.date_label = tk.Label(self, font=("Helvetica", 20))  # Increased font size
-        self.date_label.pack(side="right", padx=20, pady=(35,0))   # Increased padding
+        self.date_label.pack(side="right", padx=20, pady=(35, 0))  # Increased padding
 
         # Update time and date every second
         self.update_time()
