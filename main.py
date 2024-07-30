@@ -1,13 +1,8 @@
-
-
 import tkinter as tk  # python 3
 from tkinter import font as tkfont  # python 3
 import datetime
-import schedule
 import gspread
 import pandas as pd
-from openpyxl import load_workbook
-import csv
 import time
 
 
@@ -106,6 +101,7 @@ class SampleApp(tk.Tk):
                 df = pd.read_csv(sheet_url)
                 df.to_excel(writer, sheet_name=google_sheet[0], index=False)
 
+        self.show_frame('StartPage')
         print("Data transferred successfully!")
         pass
 
@@ -201,7 +197,7 @@ class SampleApp(tk.Tk):
         TransactionsTable = self.db.worksheet("Transactions")
         index_to_delete = -1
         for index, t in enumerate(self.Transactions):
-            if str(t['barcode']) == barcode:
+            if str(t['barcode']) == self.remove_leading(barcode):
                 index_to_delete = index
                 break
         if index_to_delete == -1:
@@ -216,7 +212,8 @@ class SampleApp(tk.Tk):
         self.frames["ReturnBookPage"].barcode_entry.focus_set()
         self.show_frame('ReturnBookPage')
 
-
+    def remove_leading(self,barcode):
+        return barcode.lstrip('0')
 
     def borrow_book(self, barcode, user_id):
         self.show_frame('BorrowBookLoadingPage')
@@ -227,7 +224,7 @@ class SampleApp(tk.Tk):
 
         book_info = None
         for b in self.Books:
-            if str(b['barcode']) == barcode:
+            if str(b['barcode']) == self.remove_leading(barcode):
                 book_info = b
                 break
         if book_info == None:
@@ -275,7 +272,7 @@ class SampleApp(tk.Tk):
 
 
     def show_notification(self, notification):
-        self.frames['NotificationPage'].title_label.config(text=notification, font=('Helvetica', 60, 'bold'))
+        self.frames['NotificationPage'].title_label.config(text=notification, font=('Helvetica', 25,'bold'))
         self.show_frame('NotificationPage')
         time.sleep(2)
 
@@ -288,15 +285,15 @@ class StartPage(tk.Frame):
         self.controller = controller
 
         # Label with larger font and padding
-        label = tk.Label(self, text="Please Scan your ID Card or Enter Manually", font=("Arial", 35, "bold"))
+        label = tk.Label(self, text="Please Scan your ID Card or Enter Manually", font=("Arial", 20, "bold"))
         label.pack(side="top", fill="x", pady=20)  # Increased padding
 
         # Username label with smaller font
-        username_label = tk.Label(self, text="User ID:", font=("Helvetica", 26))
+        username_label = tk.Label(self, text="ID:", font=("Helvetica", 25,"bold"))
         username_label.pack(pady=3)
 
         # Entry with increased width
-        self.username_entry = tk.Entry(self, width=20, font=("Helvetica", 26))
+        self.username_entry = tk.Entry(self, width=30, font=("Helvetica", 26))
         self.username_entry.pack(pady=10)
 
         # Bind the Enter key to the username_entry widget
@@ -307,26 +304,26 @@ class StartPage(tk.Frame):
         button_frame = tk.Frame(self)
         button_frame.pack(side="top", pady=10)
         button_grid = [
-            ['      0      ', '   1   ', '   2   '],
-            ['      3      ', '   4   ', '   5   '],
-            ['      6      ', '   7   ', '   8   '],
-            ['      9      ', 'Clear', 'Login']
+            ['     0     ', '      1      ', '     2     '],
+            ['     3     ', '      4      ', '     5     '],
+            ['     6     ', '      7      ', '     8     '],
+            ['     9      ','Clear','Login']
         ]
 
 
         for row_index, row in enumerate(button_grid):
             for col_index, number in enumerate(row):
                 if number == 'Clear':
-                    button = tk.Button(button_frame, text='🗑️ ' + number, bg='red',
+                    button = tk.Button(button_frame, text='🗑️ ' + number, bg='red',fg='white',
                                        command=self.handle_clear_button_click,
-                                       font=("Helvetica", 40))
+                                       font=("Helvetica", 20))
                 elif number == 'Login':
-                    button = tk.Button(button_frame, text='🔑 ' + number, bg='green', font=("Helvetica", 40),
+                    button = tk.Button(button_frame, text='🔑 ' + number, bg='green',fg='white', font=("Helvetica", 20),
                                        command=lambda: controller.validate_login(self.username_entry.get()))
                 else:
                     button = tk.Button(button_frame, text=number,
-                                       command=lambda n=number: self.handle_num_button_click(n),
-                                       font=("Helvetica", 40))
+                                       command=lambda n=number: self.handle_num_button_click(n),bg='white',
+                                       font=("Helvetica", 30))
                 button.grid(row=row_index, column=col_index, sticky="nsew", padx=5,
                             pady=5)  # Increased padding between buttons
 
@@ -346,53 +343,42 @@ class MainUserPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        title_label = tk.Label(self, text="Hello, user" + ' 📚', font=('Helvetica', 40, 'bold'))
-        title_label.pack(side="top", fill="x", pady=(20, 10))
+        title_label = tk.Label(self, text="Hello, user" + ' 📚', font=('Helvetica', 35, 'bold'))
+        title_label.pack(side="top", fill="x", pady=10)
 
-        borrow_book_button = tk.Button(self,
-                                       text="Borrow a Book"+"  (➕"+"📖)",
+        button_frame = tk.Frame(self)
+        button_frame.pack(side="top", pady=10)
+        borrow_book_button = tk.Button(button_frame,
+                                       text="Borrow" + " (➕📖) ",
                                        command=lambda: controller.goto_borrow_book_page(user_id=self.user_id),
-                                       font=('Helvetica', 26, 'bold'),
-                                       width=20,  # Adjust width as needed
-                                       height=3,
-                                       borderwidth=10,  # Set border width
-                                       relief="solid",  # Set border relief style
-                                       highlightbackground="green",  # Set border color
-                                       highlightcolor="green")  # Ensure border color is consistent
-        # Adjust height as needed
-        borrow_book_button.pack(padx=20, pady=10)  # Add padding around the button
+                                       bg="green",fg='white', font=('Helvetica', 20, 'bold'),
+                                       width=15, height=10)
+        borrow_book_button.pack(side="left", padx=10)
 
-        return_book_button = tk.Button(self,
-                                       text= "Return a Book"+"  (➖"+"📕) ",
+        # Return button
+        return_book_button = tk.Button(button_frame,
+                                       text="Return" + " (➖📗) ",
                                        command=lambda: controller.goto_return_book_page(),
-                                       font=('Helvetica', 26, 'bold'),
-                                       width=20,  # Adjust width as needed
-                                       height=3,
-                                       borderwidth=10,  # Set border width
-                                       relief="solid",  # Set border relief style
-                                       highlightbackground="red",  # Set border color
-                                       highlightcolor="red")  # Ensure border color is consistent)  # Adjust height as needed
-        return_book_button.pack(padx=20, pady=10)  # Add padding around the button
+                                       font=('Helvetica', 20, 'bold'),
+                                       bg="red",fg='white', width=15, height=10)
+        return_book_button.pack(side="left", padx=10)
 
-        self.user_id = None
-
-        view_transactions_button = tk.Button(self, text="My Currently Borrowed Books"+"  📜",
+        # History button
+        view_transactions_button = tk.Button(button_frame,
+                                             text="History"+" 📑",
                                              command=lambda: controller.goto_user_status_page(
                                                  user_id=self.user_id,
                                                  prev_page="MainUserPage"),
-                                             font=('Helvetica', 26, 'bold'),
-                                             width=30,  # Adjust width as needed
-                                             height=3,
-                                             borderwidth=10,  # Set border width
-                                             relief="solid",  # Set border relief style
-                                             highlightbackground="blue",  # Set border color
-                                             highlightcolor="blue")  # Ensure border color is consistent)  # Adjust height as needed)  # Adjust height as needed
-        view_transactions_button.pack(padx=27, pady=10)  # Add padding around the button
+                                             bg="blue",fg='white',
+                                             font=('Helvetica', 20, 'bold'),
+                                             width=15, height=10)
+        view_transactions_button.pack(side="left", padx=10)
 
-        logout_button = tk.Button(self, text='👋 ' + "Logout",
-                                  command=lambda: controller.logout(), bg="red",
-                                  font=('Helvetica', 30))
-        logout_button.pack(padx=15, pady=10)
+        # Logout button
+        logout_button = tk.Button(self, text="Logout"+" 👋",
+                                  command=lambda: controller.logout(),bg='black',fg='white',
+                                  font=('Helvetica', 25, 'bold'))
+        logout_button.pack(side="top", pady=(10, 10))
 
 
 class UserStatusPage(tk.Frame):
@@ -400,14 +386,14 @@ class UserStatusPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        title_label = tk.Label(self, text="Books You've Borrowed", font=('Helvetica', 40, 'bold'))
+        title_label = tk.Label(self, text="Books You've Borrowed", font=('Helvetica', 30, 'bold'))
         title_label.pack(side="top", fill="x", pady=10)
 
         self.user_transactions_listbox = tk.Listbox(
             self,
             exportselection=False,
             selectmode=tk.SINGLE,
-            font=('Helvetica', 40, 'bold'))
+            font=('Helvetica', 25, 'bold'))
 
         self.user_transactions_listbox.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
 
@@ -434,8 +420,8 @@ class LoadingPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        title_label = tk.Label(self, text="Loading, Please Wait...", font=('Helvetica', 50, 'bold'))
-        title_label.pack(side="top", fill="x", pady=100)
+        title_label = tk.Label(self, text="Loading, Please Wait...", font=('Helvetica', 17, 'bold'))
+        title_label.pack(side="top", fill="x", pady=10)
 
 
 class IDScanLoadingPage(tk.Frame):
@@ -443,8 +429,8 @@ class IDScanLoadingPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        title_label = tk.Label(self, text="Logging in, Please Wait...", font=('Helvetica', 50, 'bold'))
-        title_label.pack(side="top", fill="x", pady=100)
+        title_label = tk.Label(self, text="Logging in, Please Wait...", font=('Helvetica', 30, 'bold'))
+        title_label.pack(side="top", fill="x", pady=10)
 
 
 class BorrowBookLoadingPage(tk.Frame):
@@ -452,8 +438,8 @@ class BorrowBookLoadingPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        title_label = tk.Label(self, text="Registering Book Borrow, Please Wait...", font=('Helvetica', 50, 'bold'))
-        title_label.pack(side="top", fill="x", pady=100)
+        title_label = tk.Label(self, text="Registering Book Borrow, Please Wait...", font=('Helvetica', 25, 'bold'))
+        title_label.pack(side="top", fill="x", pady=10)
 
 
 class ReturnBookLoadingPage(tk.Frame):
@@ -461,8 +447,8 @@ class ReturnBookLoadingPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        title_label = tk.Label(self, text="Registering Book Return, Please Wait...", font=('Helvetica', 50, 'bold'))
-        title_label.pack(side="top", fill="x", pady=100)
+        title_label = tk.Label(self, text="Registering Book Return, Please Wait...", font=('Helvetica', 25, 'bold'))
+        title_label.pack(side="top", fill="x", pady=10)
 
 
 class NotificationPage(tk.Frame):
@@ -471,7 +457,7 @@ class NotificationPage(tk.Frame):
         tk.Frame.__init__(self, parent)
         self.controller = controller
         self.title_label = tk.Label(self, text="")
-        self.title_label.pack(side="top", fill="x", pady=100)
+        self.title_label.pack(side="top", fill="x", pady=10)
 
 
 class TransactionsLoadingPage(tk.Frame):
@@ -479,8 +465,8 @@ class TransactionsLoadingPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        title_label = tk.Label(self, text="Fetching Data, Please Wait...", font=('Helvetica', 50, 'bold'))
-        title_label.pack(side="top", fill="x", pady=100)
+        title_label = tk.Label(self, text="Fetching Data, Please Wait...", font=('Helvetica', 30, 'bold'))
+        title_label.pack(side="top", fill="x", pady=10)
 
 
 class BorrowBookPage(tk.Frame):  # for the user
@@ -488,11 +474,11 @@ class BorrowBookPage(tk.Frame):  # for the user
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        title_label = tk.Label(self, text="Borrow A Book", font=('Helvetica', 40, 'bold'))
+        title_label = tk.Label(self, text="Borrow A Book", font=('Helvetica', 30, 'bold'))
         title_label.pack(side="top", fill="x", pady=10)
 
         subtitle_label = tk.Label(self, text="Please scan the book's barcode using the barcode scanner:",
-                                  font=('Helvetica', 35))
+                                  font=('Helvetica', 20,"bold"))
         subtitle_label.pack(side="top", fill="x", pady=5)
 
         self.barcode_entry = tk.Entry(self, width=20, font=("Helvetica", 26))
@@ -517,11 +503,11 @@ class ReturnBookPage(tk.Frame):  # for the user
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        title_label = tk.Label(self, text="Return A Book", font=('Helvetica', 40, 'bold'))
+        title_label = tk.Label(self, text="Return A Book", font=('Helvetica', 30, 'bold'))
         title_label.pack(side="top", fill="x", pady=10)
 
         subtitle_label = tk.Label(self, text="Please scan the book's barcode using the barcode scanner:",
-                                  font=('Helvetica', 35))
+                                  font=('Helvetica', 20,'bold'))
         subtitle_label.pack(side="top", fill="x", pady=10)
 
         self.barcode_entry = tk.Entry(self, width=20, font=("Helvetica", 26))
@@ -545,17 +531,17 @@ class AutomaticLogOutPage(tk.Frame):
         self.controller = controller
 
         line1 = tk.Label(self, text="We Noticed You've Been Logged In For A While,",
-                         font=('Helvetica', 40, 'bold'))
+                         font=('Helvetica', 25, 'bold'))
 
         line1.pack(side="top", fill="x", pady=10)
 
         line2 = tk.Label(self, text="Are You Still There? Please Confirm Or You'll",
-                         font=('Helvetica', 40, 'bold'))
+                         font=('Helvetica', 17, 'bold'))
 
         line2.pack(side="top", fill="x", pady=10)
 
         line3 = tk.Label(self, text="Be Logged Out Automatically In 15 Seconds",
-                         font=('Helvetica', 40, 'bold'))
+                         font=('Helvetica', 17, 'bold'))
 
         line3.pack(side="top", fill="x", pady=10)
 
@@ -570,12 +556,12 @@ class AutomaticLogOutPage(tk.Frame):
         button_frame.pack(pady=30)
 
         yes_button = tk.Button(button_frame, text="Yes, still here!" + " ✅", command=self.stay,
-                               fg="green", font=('Helvetica', 30, 'bold'))
-        yes_button.pack(side="left", padx=20)
+                               fg="green", font=('Helvetica', 25, 'bold'))
+        yes_button.pack(side="left", padx=10)
 
         no_button = tk.Button(button_frame, text="No, log me out" + " ❌", command=self.leave,
-                              fg="red", font=('Helvetica', 30, 'bold'))
-        no_button.pack(side="right", padx=20)
+                              fg="red", font=('Helvetica', 25, 'bold'))
+        no_button.pack(side="right", padx=10)
 
     def stay(self):
         # here cancel the scheduled logout
@@ -596,12 +582,12 @@ class StatusBar(tk.Frame):
         self.pack(side="top", fill="x")
 
         # Time Label
-        self.time_label = tk.Label(self, font=("Helvetica", 30, "bold"))  # Increased font size
-        self.time_label.pack(side="left", padx=20)  # Increased padding
+        self.time_label = tk.Label(self, font=("Helvetica", 20))  # Increased font size
+        self.time_label.pack(side="left", padx=20, pady=(30,0))  # Increased padding
 
         # Date Label
-        self.date_label = tk.Label(self, font=("Helvetica", 30, "bold"))  # Increased font size
-        self.date_label.pack(side="right", padx=20)  # Increased padding
+        self.date_label = tk.Label(self, font=("Helvetica", 20))  # Increased font size
+        self.date_label.pack(side="right", padx=20, pady=(35,0))   # Increased padding
 
         # Update time and date every second
         self.update_time()
