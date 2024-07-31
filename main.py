@@ -49,7 +49,7 @@ class SampleApp(tk.Tk):
         container.grid_columnconfigure(0, weight=1)
 
         self.frames = {}
-        for F in (StartPage, UserStatusPage, MainUserPage, NotificationPage,
+        for F in (StartPage, UserStatusPage, MainUserPage, AdminPage, NotificationPage,
                   BorrowBookPage, ReturnBookPage, LoadingPage, IDScanLoadingPage,
                   BorrowBookLoadingPage, ReturnBookLoadingPage, TransactionsLoadingPage,
                   AutomaticLogOutPage):
@@ -65,6 +65,8 @@ class SampleApp(tk.Tk):
         self.frames["StartPage"].username_entry.focus_set()
         self.show_frame("StartPage")
 
+
+
     def convert_string(self, s):
         if not s[0].isnumeric():
             substring = s[1:10]
@@ -72,6 +74,8 @@ class SampleApp(tk.Tk):
             return result
         else:
             return s
+
+
 
     def backup_data(self):
         # Schedule the next backup procedure:
@@ -96,8 +100,9 @@ class SampleApp(tk.Tk):
                 df.to_excel(writer, sheet_name=google_sheet[0], index=False)
 
         self.show_frame('StartPage')
-        print("Data transferred successfully!")
-        pass
+
+
+
 
     def show_frame(self, page_name):
         '''Show a frame for the given page name'''
@@ -112,6 +117,8 @@ class SampleApp(tk.Tk):
         frame.tkraise()
         self.update()
 
+
+
     def validate_login(self, id):
 
         if id == "":
@@ -122,7 +129,21 @@ class SampleApp(tk.Tk):
         id = self.convert_string(id)
 
         self.show_frame('IDScanLoadingPage')
-        # check if the user exists:
+
+        # check if the Admin is logging in:
+        Admins = self.db.worksheet("Admins").get_all_records()
+        admin_info = None
+        for a in Admins:
+            if str(a['admin_id']) == self.remove_leading(id):
+                admin_info = a
+                break
+        if admin_info is not None:
+            self.logged_in = True
+            self.auto_logout_job = self.after(ms=60 * 1000, func=self.show_logout_warning)
+            self.goto_admin_page()
+            return
+
+        # if not the Admin, then check if one of the standard users:
         # get users list from cloud database:
         self.Users = self.db.worksheet("Users").get_all_records()
         user_info = None
@@ -140,6 +161,8 @@ class SampleApp(tk.Tk):
             self.frames['MainUserPage'].user_id = str(user_info['user_id'])
             self.show_frame("MainUserPage")
 
+
+
     def logout(self):
         ''' clear login info from previous users and go back to start page: '''
         # cancel the currently scheduled auto log out job:
@@ -150,6 +173,8 @@ class SampleApp(tk.Tk):
         self.frames["StartPage"].username_entry.delete(0, tk.END)
         self.frames['StartPage'].username_entry.focus_set()
         self.show_frame("StartPage")
+
+
 
     def goto_user_status_page(self, user_id, prev_page):
         self.show_frame('TransactionsLoadingPage')
@@ -164,6 +189,13 @@ class SampleApp(tk.Tk):
                 listbox.insert('end', "Book Name: " + str(t['book_name']) + "      Date of Borrow: " + str(t['date']))
         self.frames["UserStatusPage"].back_page = prev_page
         self.show_frame("UserStatusPage")
+
+
+    def goto_admin_page(self):
+        self.frames["AdminPage"].barcode_entry.delete(0, tk.END)
+        self.frames["AdminPage"].barcode_entry.focus_set()
+        self.show_frame("AdminPage")
+
 
     def goto_borrow_book_page(self, user_id):
         self.frames["BorrowBookPage"].user_id = user_id
@@ -198,8 +230,10 @@ class SampleApp(tk.Tk):
         self.frames["ReturnBookPage"].barcode_entry.focus_set()
         self.show_frame('ReturnBookPage')
 
+
     def remove_leading(self, barcode):
         return barcode.lstrip('0')
+
 
     def borrow_book(self, barcode, user_id):
         self.show_frame('BorrowBookLoadingPage')
@@ -237,6 +271,31 @@ class SampleApp(tk.Tk):
         self.frames["BorrowBookPage"].barcode_entry.delete(0, tk.END)
         self.frames["BorrowBookPage"].barcode_entry.focus_set()
         self.show_frame('BorrowBookPage')
+
+
+    def add_book(self, barcode):
+        self.show_frame('LoadingPage')
+
+        self.Books = self.db.worksheet("Books").get_all_records()
+
+        # Check if the copy already exists in the database:
+        for b in self.Books:
+            if str(b['barcode']) == self.remove_leading(barcode):
+                self.show_notification(notification="Book is already in the Library!")
+                self.frames["AdminPage"].barcode_entry.delete(0, tk.END)
+                self.frames["AdminPage"].barcode_entry.focus_set()
+                self.show_frame('AdminPage')
+                return
+
+        # Else, create a new row in the Books table and add barcode
+        new_row_data = [barcode, 'N/A']
+        BooksWorkSheet = self.db.worksheet("Books")
+        BooksWorkSheet.append_row(new_row_data)
+        self.show_notification(notification="Book Added Successfully :)")
+        self.frames["AdminPage"].barcode_entry.delete(0, tk.END)
+        self.frames["AdminPage"].barcode_entry.focus_set()
+        self.show_frame('AdminPage')
+
 
     def show_logout_warning(self):
         # Schedule the next automatic logout job:
@@ -314,6 +373,43 @@ class StartPage(tk.Frame):
 
     def handle_clear_button_click(self):
         self.username_entry.delete(0, tk.END)
+
+
+
+class AdminPage(tk.Frame):  # for the admin to add books
+
+
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+        self.controller = controller
+        title_label = tk.Label(self, text="Add a new Book to Library", font=('Helvetica', 30, 'bold'))
+        title_label.pack(side="top", fill="x", pady=10)
+
+        subtitle1_label = tk.Label(self, text="Please scan the book's barcode using the barcode scanner:",
+                                  font=('Helvetica', 20))
+        subtitle1_label.pack(side="top", fill="x", pady=5)
+
+
+        self.barcode_entry = tk.Entry(self, width=20, font=("Helvetica", 26))
+        self.barcode_entry.pack(pady=10)
+
+        subtitle2_label = tk.Label(self, text="Make sure to fill out the Book Name in the database after scanning",
+                                   font=('Helvetica', 20))
+        subtitle2_label.pack(side="top", fill="x", pady=5)
+
+        logout_button = tk.Button(self, text='🔙 ' + "Logout",
+                                command=lambda: controller.logout(),
+                                font=('Helvetica', 30))
+        logout_button.pack(pady=10)
+
+        # Bind the Enter key to the barcode_entry widget
+        self.barcode_entry.bind("<Return>", self.on_enter)
+
+    def on_enter(self, event):
+        self.controller.add_book(self.barcode_entry.get())
+
+
+
 
 
 class MainUserPage(tk.Frame):
