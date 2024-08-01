@@ -3,6 +3,8 @@ from tkinter import font as tkfont  # python 3
 import datetime
 import gspread
 import pandas as pd
+import openpyxl
+import csv
 import time
 
 
@@ -12,7 +14,7 @@ class SampleApp(tk.Tk):
         tk.Tk.__init__(self, *args, **kwargs)
 
         # App Window Size:::
-        self.attributes('-fullscreen', True )
+        self.attributes('-fullscreen', True)
         # self.geometry("800x600")
 
         # Initialize connection to database:
@@ -20,6 +22,9 @@ class SampleApp(tk.Tk):
         self.gc = gspread.service_account(
             filename="./service_account.json")
         self.db = self.gc.open_by_url(self.db_url)
+
+        # Variable to store the current WI-FI connection status:
+        self.no_wifi_connection = False
 
         # Variable to store Job Id of the currently scheduled logout job
         self.auto_logout_job = ""
@@ -84,20 +89,27 @@ class SampleApp(tk.Tk):
             return  # don't want to bother the user
 
         self.show_frame('LoadingPage')
-        sheets = ["Users", "Books", "Transactions"]
-        google_sheets = [(sheet_name, self.db.worksheet(sheet_name).id) for sheet_name in sheets]
-        excel_file = "./local_db.xlsx"  # Replace with path to your Excel file
+        try:
+            self.sync_excel_to_google_sheet()
+            # if there's a WI-FI connection, load data from Google Sheets to local Excel file:
+            sheets = ["Users", "Books", "Transactions", "Admins"]
+            google_sheets = [(sheet_name, self.db.worksheet(sheet_name).id) for sheet_name in sheets]
+            excel_file = "./local_db.xlsx"  # Replace with path to your Excel file
 
-        with pd.ExcelWriter(
-                path=excel_file,
-                mode="w",
-                engine="openpyxl",
-        ) as writer:
-            for google_sheet in google_sheets:
-                sheet_url = f"https://docs.google.com/spreadsheets/d/144bmhnqKytJMZwtBWR0IJ_UFbGy4gWWqukEfHV6laEU/" \
-                            f"export?format=csv&gid={google_sheet[1]}"
-                df = pd.read_csv(sheet_url)
-                df.to_excel(writer, sheet_name=google_sheet[0], index=False)
+            with pd.ExcelWriter(
+                    path=excel_file,
+                    mode="w",
+                    engine="openpyxl",
+            ) as writer:
+                for google_sheet in google_sheets:
+                    sheet_url = f"https://docs.google.com/spreadsheets/d/144bmhnqKytJMZwtBWR0IJ_UFbGy4gWWqukEfHV6laEU/" \
+                                f"export?format=csv&gid={google_sheet[1]}"
+                    df = pd.read_csv(sheet_url)
+                    df.to_excel(writer, sheet_name=google_sheet[0], index=False)
+
+        except:
+            # control reached here so there's no WI-FI, nothing to backup but need to update connection status:
+            self.no_wifi_connection = True
 
         self.show_frame('StartPage')
 
@@ -130,36 +142,79 @@ class SampleApp(tk.Tk):
 
         self.show_frame('IDScanLoadingPage')
 
-        # check if the Admin is logging in:
-        Admins = self.db.worksheet("Admins").get_all_records()
-        admin_info = None
-        for a in Admins:
-            if str(a['admin_id']) == self.remove_leading(id):
-                admin_info = a
-                break
-        if admin_info is not None:
-            self.logged_in = True
-            self.auto_logout_job = self.after(ms=60 * 1000, func=self.show_logout_warning)
-            self.goto_admin_page()
-            return
+        try:
+            self.sync_excel_to_google_sheet()
+            # check if the Admin is logging in:
+            Admins = self.db.worksheet("Admins").get_all_records()
+            admin_info = None
+            for a in Admins:
+                if str(a['admin_id']) == self.remove_leading(id):
+                    admin_info = a
+                    break
+            if admin_info is not None:
+                self.logged_in = True
+                self.auto_logout_job = self.after(ms=60 * 1000, func=self.show_logout_warning)
+                self.goto_admin_page()
+                return
 
-        # if not the Admin, then check if one of the standard users:
-        # get users list from cloud database:
-        self.Users = self.db.worksheet("Users").get_all_records()
-        user_info = None
-        for u in self.Users:
-            if str(u['user_id']) == self.remove_leading(id):
-                user_info = u
-                break
-        if user_info is None:
-            self.show_notification(notification="User does not exist!")
-            self.frames['StartPage'].username_entry.delete(0, tk.END)
-            self.show_frame('StartPage')
-        else:
-            self.logged_in = True
-            self.auto_logout_job = self.after(ms=60 * 1000, func=self.show_logout_warning)
-            self.frames['MainUserPage'].user_id = str(user_info['user_id'])
-            self.show_frame("MainUserPage")
+            # if not the Admin, then check if one of the standard users:
+            # get users list from cloud database:
+            self.Users = self.db.worksheet("Users").get_all_records()
+            user_info = None
+            for u in self.Users:
+                if str(u['user_id']) == self.remove_leading(id):
+                    user_info = u
+                    break
+            if user_info is None:
+                self.show_notification(notification="User does not exist!")
+                self.frames['StartPage'].username_entry.delete(0, tk.END)
+                self.show_frame('StartPage')
+            else:
+                self.logged_in = True
+                self.auto_logout_job = self.after(ms=60 * 1000, func=self.show_logout_warning)
+                self.frames['MainUserPage'].user_id = str(user_info['user_id'])
+                self.show_frame("MainUserPage")
+
+        except:
+            # control reached here, so there is no WI-FI connection:
+            self.no_wifi_connection = True  # update connection status
+            # In case there's no WI-FI connection:
+            excel_file_path = "local_db.xlsx"
+            # Open the workbook
+            workbook = openpyxl.load_workbook(excel_file_path)
+
+            # first, check if the Admin is logging in:
+            admins_worksheet = workbook['Admins']
+            admin_info = None
+            for a in admins_worksheet.iter_rows(min_row=2, max_col=1):
+                cell_value = a[0].value
+                if str(cell_value) == self.remove_leading(id):
+                    admin_info = cell_value
+                    break
+            if admin_info is not None:
+                self.logged_in = True
+                self.auto_logout_job = self.after(ms=60 * 1000, func=self.show_logout_warning)
+                self.goto_admin_page()
+                return
+
+
+            # if not the Admin, check if it's one of the standard users:
+            users_worksheet = workbook["Users"]
+            user_info = None
+            for row in users_worksheet.iter_rows(min_row=2, max_col=1):  # Skip the header row (assuming row 1)
+                cell_value = row[0].value  # Access by index (0-based)
+                if str(cell_value) == self.remove_leading(id):
+                    user_info = cell_value
+                    break
+            if user_info is None:
+                self.show_notification(notification="User does not exist!")
+                self.frames['StartPage'].username_entry.delete(0, tk.END)
+                self.show_frame('StartPage')
+            else:
+                self.logged_in = True
+                self.auto_logout_job = self.after(ms=60 * 1000, func=self.show_logout_warning)
+                self.frames['MainUserPage'].user_id = str(user_info)
+                self.show_frame("MainUserPage")
 
 
 
@@ -181,12 +236,31 @@ class SampleApp(tk.Tk):
 
         listbox = self.frames["UserStatusPage"].user_transactions_listbox
         listbox.delete(0, 'end')
-        # Get Transactions  Table from Google Sheets:
-        self.Transactions = self.db.worksheet("Transactions").get_all_records()
 
-        for t in self.Transactions:
-            if str(t['user_id']) == self.remove_leading(user_id):
-                listbox.insert('end', "Book Name: " + str(t['book_name']) + "      Date of Borrow: " + str(t['date']))
+        try:
+            # check for WI-FI connection, if it came back sync data back to google sheet:
+            self.sync_excel_to_google_sheet()
+
+            # If control reached here, then there is a WI-FI connection, get data from Google Sheets:
+            self.Transactions = self.db.worksheet("Transactions").get_all_records()
+
+            for t in self.Transactions:
+                if str(t['user_id']) == self.remove_leading(user_id):
+                    listbox.insert('end', "Book Name: " + str(t['book_name']) + "      Date of Borrow: " + str(t['date']))
+        except:
+            # control reached here so there is no WI-FI connection:
+            self.no_wifi_connection = True  # update connection status
+
+            excel_file_path = "local_db.xlsx"
+            # Open the workbook
+            workbook = openpyxl.load_workbook(excel_file_path)
+            # Select the worksheet (replace 'Sheet1' with the actual sheet name if different)
+            transactions_worksheet = workbook["Transactions"]
+            for row in transactions_worksheet.iter_rows(min_row=2, max_col=4):
+                cell_value = row[0].value
+                if str(cell_value) == self.remove_leading(user_id):
+                    listbox.insert('end', "Book Name: " + str(row[2].value) + " Date: " + str(row[3].value))
+
         self.frames["UserStatusPage"].back_page = prev_page
         self.show_frame("UserStatusPage")
 
@@ -211,20 +285,50 @@ class SampleApp(tk.Tk):
     def return_book(self, barcode):
         self.show_frame('ReturnBookLoadingPage')
 
-        self.Transactions = self.db.worksheet("Transactions").get_all_records()
-        TransactionsTable = self.db.worksheet("Transactions")
-        index_to_delete = -1
-        for index, t in enumerate(self.Transactions):
-            if str(t['barcode']) == self.remove_leading(barcode):
-                index_to_delete = index
-                break
-        if index_to_delete == -1:
-            self.show_notification(notification="This Book Copy Has Not Been Borrowed Before!")
-            self.frames['ReturnBookPage'].barcode_entry.delete(0, tk.END)
-            self.frames['ReturnBookPage'].barcode_entry.focus_set()
-            self.show_frame('ReturnBookPage')
-            return
-        TransactionsTable.delete_rows(index_to_delete + 2, index_to_delete + 2)
+        try:
+            # check for WI-FI connection, if it came back sync data back to google sheet:
+            self.sync_excel_to_google_sheet()
+
+            # If control reached here, then there is a WI-FI connection, get data from Google Sheets:
+            self.Transactions = self.db.worksheet("Transactions").get_all_records()
+            TransactionsTable = self.db.worksheet("Transactions")
+            index_to_delete = -1
+            for index, t in enumerate(self.Transactions):
+                if str(t['barcode']) == self.remove_leading(barcode):
+                    index_to_delete = index
+                    break
+            if index_to_delete == -1:
+                self.show_notification(notification="This Book Copy Has Not Been Borrowed Before!")
+                self.frames['ReturnBookPage'].barcode_entry.delete(0, tk.END)
+                self.frames['ReturnBookPage'].barcode_entry.focus_set()
+                self.show_frame('ReturnBookPage')
+                return
+            TransactionsTable.delete_rows(index_to_delete + 2, index_to_delete + 2)
+        except:
+            # control reached here so there is no WI-FI connection:
+            self.no_wifi_connection = True  # update connection status
+
+            excel_file_path = "local_db.xlsx"
+            # Open the workbook
+            workbook = openpyxl.load_workbook(excel_file_path)
+
+            # Select the worksheet (replace 'Sheet1' with the actual sheet name if different)
+            transactions_worksheet = workbook["Transactions"]
+            index_to_delete = -1
+            for index, row in enumerate(transactions_worksheet.iter_rows(min_row=2, max_col=2)):
+                cell_value = row[1].value
+                if str(cell_value) == self.remove_leading(barcode):
+                    index_to_delete = index
+                    break
+            if index_to_delete == -1:
+                self.show_notification(notification="This Book Copy Has Not Been Borrowed Before!")
+                self.frames['ReturnBookPage'].barcode_entry.delete(0, tk.END)
+                self.frames['ReturnBookPage'].barcode_entry.focus_set()
+                self.show_frame('ReturnBookPage')
+                return
+            transactions_worksheet.delete_rows(idx=index_to_delete + 2, amount=1)
+            workbook.save(filename=excel_file_path)
+
         self.show_notification(notification="Book Returned Successfully!")
         self.frames["ReturnBookPage"].barcode_entry.delete(0, tk.END)
         self.frames["ReturnBookPage"].barcode_entry.focus_set()
@@ -237,36 +341,83 @@ class SampleApp(tk.Tk):
 
     def borrow_book(self, barcode, user_id):
         self.show_frame('BorrowBookLoadingPage')
+        #####################################################################################################
 
-        self.Books = self.db.worksheet("Books").get_all_records()
-        self.Transactions = self.db.worksheet("Transactions").get_all_records()
-        # Check if the copy is available for borrow:
+        try:
+            # check for WI-FI connection, if it came back sync data back to google sheet:
+            self.sync_excel_to_google_sheet()
 
-        book_info = None
-        for b in self.Books:
-            if str(b['barcode']) == self.remove_leading(barcode):
-                book_info = b
-                break
-        if book_info == None:
-            self.show_notification(notification="Book does not belong to the Library!")
-            self.frames['BorrowBookPage'].barcode_entry.delete(0, tk.END)
-            self.frames['BorrowBookPage'].barcode_entry.focus_set()
-            self.show_frame('BorrowBookPage')
-            return
-        for t in self.Transactions:
-            if str(t['barcode']) == self.remove_leading(barcode):
-                self.show_notification(notification="This Book Copy has not been returned yet!")
+            # If control reached here, then there is a WI-FI connection, get data from Google Sheets:
+            self.Books = self.db.worksheet("Books").get_all_records()
+            self.Transactions = self.db.worksheet("Transactions").get_all_records()
+
+            # Check if the copy is available for borrow:
+            book_info = None
+            for b in self.Books:
+                if str(b['barcode']) == self.remove_leading(barcode):
+                    book_info = b
+                    break
+            if book_info == None:
+                self.show_notification(notification="Book does not belong to the Library!")
                 self.frames['BorrowBookPage'].barcode_entry.delete(0, tk.END)
                 self.frames['BorrowBookPage'].barcode_entry.focus_set()
                 self.show_frame('BorrowBookPage')
                 return
+            for t in self.Transactions:
+                if str(t['barcode']) == self.remove_leading(barcode):
+                    self.show_notification(notification="This Book Copy has not been returned yet!")
+                    self.frames['BorrowBookPage'].barcode_entry.delete(0, tk.END)
+                    self.frames['BorrowBookPage'].barcode_entry.focus_set()
+                    self.show_frame('BorrowBookPage')
+                    return
 
-        # Else, create and enter a new transaction record for user_id and book_barcode:
-        transaction_date = datetime.date.today()
-        transaction_date_str = transaction_date.strftime("%Y-%m-%d")
-        new_row_data = [user_id, barcode, book_info['book_name'], transaction_date_str]
-        TransactionsWorkSheet = self.db.worksheet("Transactions")
-        TransactionsWorkSheet.append_row(new_row_data)
+            # Else, create and enter a new transaction record for user_id and book_barcode:
+            transaction_date = datetime.date.today()
+            transaction_date_str = transaction_date.strftime("%B %d, %Y")
+            new_row_data = [int(user_id), int(barcode), book_info['book_name'], transaction_date_str]
+            TransactionsWorkSheet = self.db.worksheet("Transactions")
+            TransactionsWorkSheet.append_row(new_row_data)
+
+        except:
+            # control reached here so there is no WI-FI connection:
+            self.no_wifi_connection = True  # update connection status
+
+            excel_file_path = "local_db.xlsx"
+            # Open the workbook
+            workbook = openpyxl.load_workbook(excel_file_path)
+
+            # Select the worksheet (replace 'Sheet1' with the actual sheet name if different)
+            books_worksheet = workbook["Books"]
+            transactions_worksheet = workbook["Transactions"]
+
+            book_info = None
+            for row in books_worksheet.iter_rows(min_row=2, max_col=2):  # Skip the header row (assuming row 1)
+                cell_value = row
+                if str(cell_value[0].value) == self.remove_leading(barcode):
+                    book_info = cell_value[1].value
+                    break
+            if book_info is None:
+                self.show_notification(notification="Book does not belong to the Library!")
+                self.frames['BorrowBookPage'].barcode_entry.delete(0, tk.END)
+                self.frames['BorrowBookPage'].barcode_entry.focus_set()
+                self.show_frame('BorrowBookPage')
+                return
+            for row in transactions_worksheet.iter_rows(min_row=2, max_col=1):
+                cell_value = row[0].value
+                if str(cell_value) == self.remove_leading(barcode):
+                    self.show_notification(notification="This Book Copy has not been returned yet!")
+                    self.frames['BorrowBookPage'].barcode_entry.delete(0, tk.END)
+                    self.frames['BorrowBookPage'].barcode_entry.focus_set()
+                    self.show_frame('BorrowBookPage')
+                    return
+
+            # Else, create and enter a new transaction record for user_id and book_barcode:
+            transaction_date = datetime.date.today()
+            transaction_date_str = transaction_date.strftime("%B %d, %Y")
+            new_row_data = [int(user_id), int(barcode), book_info, transaction_date_str]
+            transactions_worksheet.append(new_row_data)
+            workbook.save(filename=excel_file_path)
+
         self.show_notification(notification="Book Borrowed Successfully :)")
         self.frames["BorrowBookPage"].barcode_entry.delete(0, tk.END)
         self.frames["BorrowBookPage"].barcode_entry.focus_set()
@@ -276,25 +427,36 @@ class SampleApp(tk.Tk):
     def add_book(self, barcode):
         self.show_frame('LoadingPage')
 
-        self.Books = self.db.worksheet("Books").get_all_records()
+        try:
+            self.sync_excel_to_google_sheet()
 
-        # Check if the copy already exists in the database:
-        for b in self.Books:
-            if str(b['barcode']) == self.remove_leading(barcode):
-                self.show_notification(notification="Book is already in the Library!")
-                self.frames["AdminPage"].barcode_entry.delete(0, tk.END)
-                self.frames["AdminPage"].barcode_entry.focus_set()
-                self.show_frame('AdminPage')
-                return
+            self.Books = self.db.worksheet("Books").get_all_records()
 
-        # Else, create a new row in the Books table and add barcode
-        new_row_data = [barcode, 'N/A']
-        BooksWorkSheet = self.db.worksheet("Books")
-        BooksWorkSheet.append_row(new_row_data)
-        self.show_notification(notification="Book Added Successfully :)")
-        self.frames["AdminPage"].barcode_entry.delete(0, tk.END)
-        self.frames["AdminPage"].barcode_entry.focus_set()
-        self.show_frame('AdminPage')
+            # Check if the copy already exists in the database:
+            for b in self.Books:
+                if str(b['barcode']) == self.remove_leading(barcode):
+                    self.show_notification(notification="Book is already in the Library!")
+                    self.frames["AdminPage"].barcode_entry.delete(0, tk.END)
+                    self.frames["AdminPage"].barcode_entry.focus_set()
+                    self.show_frame('AdminPage')
+                    return
+
+            # Else, create a new row in the Books table and add barcode
+            new_row_data = [int(barcode), 'N/A']
+            BooksWorkSheet = self.db.worksheet("Books")
+            BooksWorkSheet.append_row(new_row_data)
+            self.show_notification(notification="Book Added Successfully :)")
+            self.frames["AdminPage"].barcode_entry.delete(0, tk.END)
+            self.frames["AdminPage"].barcode_entry.focus_set()
+            self.show_frame('AdminPage')
+
+        except:
+            # control reached here so there is no WI-FI connection:
+            self.no_wifi_connection = True  # update connection status
+            self.show_notification('No WI-FI Connection!')
+            self.logout()
+
+
 
 
     def show_logout_warning(self):
@@ -315,6 +477,22 @@ class SampleApp(tk.Tk):
         self.frames['NotificationPage'].title_label.config(text=notification, font=('Helvetica', 25, 'bold'))
         self.show_frame('NotificationPage')
         time.sleep(2)
+
+
+    def sync_excel_to_google_sheet(self):
+        excel_file_path = 'local_db.xlsx'
+        TransactionsWorkSheet = self.db.worksheet("Transactions")
+        if self.no_wifi_connection is True:
+            # if control reaches here: this means there was no WI-FI connection and now it came back
+            self.no_wifi_connection = False  # update connection status
+            TransactionsWorkSheet.clear()
+            workbook = openpyxl.load_workbook(excel_file_path)
+
+            # Select the worksheet (replace 'Sheet1' with the actual sheet name if different)
+            transactions_worksheet = workbook["Transactions"]
+            for row in transactions_worksheet.iter_rows(min_row=1, max_col=4):
+                row_cells = [cell.value for cell in row]
+                TransactionsWorkSheet.append_row(row_cells)
 
 
 class StartPage(tk.Frame):
@@ -494,7 +672,7 @@ class LoadingPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        title_label = tk.Label(self, text="Loading, Please Wait...", font=('Helvetica', 17, 'bold'))
+        title_label = tk.Label(self, text="Loading, Please Wait...", font=('Helvetica', 25, 'bold'))
         title_label.pack(side="top", fill="x", pady=10)
 
 
@@ -666,11 +844,12 @@ class StatusBar(tk.Frame):
 
     def update_time(self):
         now = datetime.datetime.now()
-        self.time_label.config(text=now.strftime("%H:%M:%S"))
+        self.time_label.config(text=now.strftime("%H:%M"))
         self.date_label.config(text=now.strftime("%Y-%m-%d"))
-        self.after(1000, self.update_time)  # Update every second
+        self.after(60 * 1000, self.update_time)  # Update every minute
 
 
 if __name__ == "__main__":
     app = SampleApp()
+    app.backup_data()
     app.mainloop()
