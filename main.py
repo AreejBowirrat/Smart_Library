@@ -13,8 +13,42 @@ class SampleApp(tk.Tk):
 
         # App Window Size::
         self.attributes('-fullscreen', True)
-        #self.show_frame('LoadingPage')
-        # self.geometry("800x600")
+
+        # Create StatusBar
+        self.status_bar = StatusBar(self)
+        self.status_bar.pack(side="top", fill="x")
+        # Create and place the connection status label
+        self.connection_status_label = tk.Label(self, font=("Arial", 20))
+        self.connection_status_label.pack(anchor="ne", padx=20, pady=5)
+
+
+        # the container is where we'll stack a bunch of frames
+        # on top of each other, then the one we want visible
+        # will be raised above the others
+        container = tk.Frame(self)
+        container.pack(side="top", fill="both", expand=True)
+        container.grid_rowconfigure(0, weight=1)
+        container.grid_columnconfigure(0, weight=1)
+
+        self.frames = {}
+        for F in (StartPage, UserStatusPage, MainUserPage, AdminPage, NotificationPage,
+                  BorrowBookPage, ReturnBookPage, LoadingPage, StartingUpPage, IDScanLoadingPage,
+                  BorrowBookLoadingPage, ReturnBookLoadingPage, TransactionsLoadingPage,
+                  AutomaticLogOutPage):
+            page_name = F.__name__
+            frame = F(parent=container, controller=self)
+            self.frames[page_name] = frame
+
+            # put all the pages in the same location;
+            # the one on the top of the stacking order
+            # will be the one that is visible.
+            frame.grid(row=0, column=0, sticky="nsew")
+
+
+        frame = self.frames['StartingUpPage']
+        frame.tkraise()
+        self.update()
+
 
         # connection to database:
         self.db_url = ""
@@ -40,15 +74,6 @@ class SampleApp(tk.Tk):
             self.no_wifi_connection = True
 
 
-
-        # Initial Wi-Fi connection status
-
-        # Create and place the connection status label
-        self.connection_status_label = tk.Label(self, font=("Arial", 20))
-        self.connection_status_label.pack(anchor="ne", padx=20, pady=5)
-
-        self.update_connection_status()  # Initialize the connection status display
-
         # Variable to store Job Id of the currently scheduled logout job
         self.auto_logout_job = ""
         # Variable that stores the current state of the system to enable/disable auto logouts
@@ -64,32 +89,7 @@ class SampleApp(tk.Tk):
 
         self.Transactions = []
 
-        # Create StatusBar
-        self.status_bar = StatusBar(self)
-        self.status_bar.pack(side="top", fill="x")
-
-        # the container is where we'll stack a bunch of frames
-        # on top of each other, then the one we want visible
-        # will be raised above the others
-        container = tk.Frame(self)
-        container.pack(side="top", fill="both", expand=True)
-        container.grid_rowconfigure(0, weight=1)
-        container.grid_columnconfigure(0, weight=1)
-
-        self.frames = {}
-        for F in (StartPage, UserStatusPage, MainUserPage, AdminPage, NotificationPage,
-                  BorrowBookPage, ReturnBookPage, LoadingPage, IDScanLoadingPage,
-                  BorrowBookLoadingPage, ReturnBookLoadingPage, TransactionsLoadingPage,
-                  AutomaticLogOutPage):
-            page_name = F.__name__
-            frame = F(parent=container, controller=self)
-            self.frames[page_name] = frame
-
-            # put all the pages in the same location;
-            # the one on the top of the stacking order
-            # will be the one that is visible.
-            frame.grid(row=0, column=0, sticky="nsew")
-
+        self.update_connection_status()  # Initialize the connection status display
         self.frames["StartPage"].username_entry.focus_set()
         self.show_frame("StartPage")
 
@@ -694,6 +694,14 @@ class LoadingPage(tk.Frame):
         tk.Frame.__init__(self, parent)
         self.controller = controller
         title_label = tk.Label(self, text="Loading, Please Wait...", font=('Helvetica', 25, 'bold'))
+        title_label.pack(side="top", fill="x", pady=10)
+
+class StartingUpPage(tk.Frame):
+
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+        self.controller = controller
+        title_label = tk.Label(self, text="Starting Up, Please Wait...", font=('Helvetica', 25, 'bold'))
         title_label.pack(side="top", fill="x", pady=10)
 
 
