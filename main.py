@@ -13,18 +13,38 @@ class SampleApp(tk.Tk):
 
         # App Window Size::
         self.attributes('-fullscreen', True)
+        #self.show_frame('LoadingPage')
         # self.geometry("800x600")
 
-        # Initialize connection to database:
-        self.db_url = "https://docs.google.com/spreadsheets/d/144bmhnqKytJMZwtBWR0IJ_UFbGy4gWWqukEfHV6laEU/edit?usp=sharing"
-        self.gc = gspread.service_account(
-            filename="./service_account.json")
-        self.db = self.gc.open_by_url(self.db_url)
+        # connection to database:
+        self.db_url = ""
+        self.gc = None
+        self.db = None
+        self.no_wifi_connection = False
+        try:
+            self.db_url = "https://docs.google.com/spreadsheets/d/144bmhnqKytJMZwtBWR0IJ_UFbGy4gWWqukEfHV6laEU/edit?usp=sharing"
+            self.gc = gspread.service_account(
+                filename="./service_account.json")
+            self.db = self.gc.open_by_url(self.db_url)
+            # if control reaches here then there is WI-FI at startup, synchorinize with local database:
+            TransactionsWorkSheet = self.db.worksheet("Transactions")
+            TransactionsWorkSheet.clear()
+            workbook = openpyxl.load_workbook('local_db.xlsx')
 
-        self.no_wifi_connection = False  # Initial Wi-Fi connection status
+            # Select the worksheet (replace 'Sheet1' with the actual sheet name if different)
+            transactions_worksheet = workbook["Transactions"]
+            for row in transactions_worksheet.iter_rows(min_row=1, max_col=4):
+                row_cells = [cell.value for cell in row]
+                TransactionsWorkSheet.append_row(row_cells)
+        except:
+            self.no_wifi_connection = True
+
+
+
+        # Initial Wi-Fi connection status
 
         # Create and place the connection status label
-        self.connection_status_label = tk.Label(self, font=("Arial", 20), fg="red")
+        self.connection_status_label = tk.Label(self, font=("Arial", 20))
         self.connection_status_label.pack(anchor="ne", padx=20, pady=5)
 
         self.update_connection_status()  # Initialize the connection status display
@@ -75,9 +95,10 @@ class SampleApp(tk.Tk):
 
     def update_connection_status(self):
         if self.no_wifi_connection:
-            self.connection_status_label.config(text="❌ No Connection")
+            self.connection_status_label.config(text="❌ No Connection", fg="red")
         else:
-            self.connection_status_label.config(text="")
+            self.connection_status_label.config(text="Connected to WI-FI", fg="green")
+        self.update()
 
     def convert_string(self, s):
         if not s[0].isnumeric():
@@ -146,6 +167,7 @@ class SampleApp(tk.Tk):
         try:
             self.sync_excel_to_google_sheet()
             self.update_connection_status()
+
             # check if the Admin is logging in:
             Admins = self.db.worksheet("Admins").get_all_records()
             admin_info = None
@@ -476,7 +498,17 @@ class SampleApp(tk.Tk):
 
     def sync_excel_to_google_sheet(self):
         excel_file_path = 'local_db.xlsx'
+
+        # check if there was no WI-FI connection at start-up:
+        if self.db is None:
+            self.db_url = "https://docs.google.com/spreadsheets/d/144bmhnqKytJMZwtBWR0IJ_UFbGy4gWWqukEfHV6laEU/edit?usp=sharing"
+            self.gc = gspread.service_account(
+                filename="./service_account.json")
+            self.db = self.gc.open_by_url(self.db_url)
+
         TransactionsWorkSheet = self.db.worksheet("Transactions")
+        # if control reaches here: then there is WI-FI
+
         if self.no_wifi_connection is True:
             # if control reaches here: this means there was no WI-FI connection and now it came back
             self.no_wifi_connection = False  # update connection status
