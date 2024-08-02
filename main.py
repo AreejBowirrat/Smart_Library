@@ -11,7 +11,7 @@ class SampleApp(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
 
-        # App Window Size::
+        # App Window Size:
         self.attributes('-fullscreen', True)
         # self.geometry("800x600")
 
