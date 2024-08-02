@@ -1,10 +1,8 @@
 import tkinter as tk  # python 3
-from tkinter import font as tkfont  # python 3
 import datetime
 import gspread
 import pandas as pd
 import openpyxl
-import csv
 import time
 
 
@@ -851,5 +849,4 @@ class StatusBar(tk.Frame):
 
 if __name__ == "__main__":
     app = SampleApp()
-    app.backup_data()
     app.mainloop()
