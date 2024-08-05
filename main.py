@@ -18,8 +18,8 @@ class SampleApp(tk.Tk):
         self.status_bar = StatusBar(self)
         self.status_bar.pack(side="top", fill="x")
         # Create and place the connection status label
-        self.connection_status_label = tk.Label(self, font=("Arial", 20))
-        self.connection_status_label.pack(anchor="ne", padx=20, pady=5)
+        #self.connection_status_label = tk.Label(self.status_bar, font=("Helvetica", 15))
+        #self.connection_status_label.pack(side="right", padx=15, pady=(30, 0))
 
 
         # the container is where we'll stack a bunch of frames
@@ -60,12 +60,12 @@ class SampleApp(tk.Tk):
             # initialize communication with the cloud database:
             self.db_url = "https://docs.google.com/spreadsheets/d/144bmhnqKytJMZwtBWR0IJ_UFbGy4gWWqukEfHV6laEU/edit?usp=sharing"
             self.gc = gspread.service_account(
-                filename="./service_account.json")
+                filename="/home/amermasarweh/Desktop/project/service_account.json")
             self.db = self.gc.open_by_url(self.db_url)
             # Synchorinize with local database:
             TransactionsWorkSheet = self.db.worksheet("Transactions")
             TransactionsWorkSheet.clear()
-            workbook = openpyxl.load_workbook('local_db.xlsx')
+            workbook = openpyxl.load_workbook('/home/amermasarweh/Desktop/project/local_db.xlsx')
 
             # Select the worksheet (replace 'Sheet1' with the actual sheet name if different)
             transactions_worksheet = workbook["Transactions"]
@@ -96,9 +96,9 @@ class SampleApp(tk.Tk):
 
     def update_connection_status(self, connected):
         if connected:
-            self.connection_status_label.config(text="Connected to WI-FI", fg="green")
+            self.status_bar.connection_status_label.config(text="Connected to WI-FI", fg="green")
         else:
-            self.connection_status_label.config(text="❌ No Connection", fg="red")
+            self.status_bar.connection_status_label.config(text="❌ No Connection", fg="red")
         self.update()
 
     def check_wifi(self):
@@ -135,7 +135,7 @@ class SampleApp(tk.Tk):
             # if there's a WI-FI connection, load data from Google Sheets to local Excel file:
             sheets = ["Users", "Books", "Transactions", "Admins"]
             google_sheets = [(sheet_name, self.db.worksheet(sheet_name).id) for sheet_name in sheets]
-            excel_file = "./local_db.xlsx"  # Replace with path to your Excel file
+            excel_file = "/home/amermasarweh/Desktop/project/local_db.xlsx"  # Replace with path to your Excel file
             with pd.ExcelWriter(
                     path=excel_file,
                     mode="w",
@@ -213,7 +213,7 @@ class SampleApp(tk.Tk):
 
         else:  # In case there's no WI-FI connection:
             self.no_wifi_connection = True
-            excel_file_path = "local_db.xlsx"
+            excel_file_path = "/home/amermasarweh/Desktop/project/local_db.xlsx"
             # Open the workbook
             workbook = openpyxl.load_workbook(excel_file_path)
 
@@ -223,13 +223,13 @@ class SampleApp(tk.Tk):
             for a in admins_worksheet.iter_rows(min_row=2, max_col=1):
                 cell_value = a[0].value
                 if str(cell_value) == self.remove_leading(id):
-                    admin_info = cell_value
-                    break
-            if admin_info is not None:
-                self.logged_in = True
-                self.auto_logout_job = self.after(ms=60 * 1000, func=self.show_logout_warning)
-                self.goto_admin_page()
-                return
+                    self.no_wifi_connection = True
+                    self.show_notification('No WI-FI Connection!' + '\n' + 
+                    'Please add the book manually via Google Sheets')
+                    self.frames['StartPage'].username_entry.delete(0, tk.END)
+                    self.show_frame('StartPage')
+                    return
+            
 
             # if not the Admin, check if it's one of the standard users:
             users_worksheet = workbook["Users"]
@@ -285,7 +285,7 @@ class SampleApp(tk.Tk):
                                    "Book Name: " + str(t['book_name']) + "      Date of Borrow: " + str(t['date']))
         else:
             self.no_wifi_connection = True
-            excel_file_path = "local_db.xlsx"
+            excel_file_path = "/home/amermasarweh/Desktop/project/local_db.xlsx"
             # Open the workbook
             workbook = openpyxl.load_workbook(excel_file_path)
             # Select the worksheet (replace 'Sheet1' with the actual sheet name if different)
@@ -342,7 +342,7 @@ class SampleApp(tk.Tk):
 
         else:
             self.no_wifi_connection = True
-            excel_file_path = "local_db.xlsx"
+            excel_file_path = "/home/amermasarweh/Desktop/project/local_db.xlsx"
             # Open the workbook
             workbook = openpyxl.load_workbook(excel_file_path)
 
@@ -414,7 +414,7 @@ class SampleApp(tk.Tk):
 
         else:   #  there is no WI-FI connection currently:
             self.no_wifi_connection = True
-            excel_file_path = "local_db.xlsx"
+            excel_file_path = "/home/amermasarweh/Desktop/project/local_db.xlsx"
             # Open the workbook
             workbook = openpyxl.load_workbook(excel_file_path)
 
@@ -506,7 +506,8 @@ class SampleApp(tk.Tk):
         self.logout()
 
     def show_notification(self, notification):
-        self.frames['NotificationPage'].title_label.config(text=notification, font=('Helvetica', 25, 'bold'))
+        self.frames['NotificationPage'].title_label.config(text='\n' + '\n' + '\n' + notification,
+         font=('Helvetica', 25, 'bold'))
         self.show_frame('NotificationPage')
         time.sleep(2)
 
@@ -517,13 +518,13 @@ class SampleApp(tk.Tk):
         if self.db is None:
             self.db_url = "https://docs.google.com/spreadsheets/d/144bmhnqKytJMZwtBWR0IJ_UFbGy4gWWqukEfHV6laEU/edit?usp=sharing"
             self.gc = gspread.service_account(
-                filename="./service_account.json")
+                filename="/home/amermasarweh/Desktop/project/service_account.json")
             self.db = self.gc.open_by_url(self.db_url)
 
 
         # if control reaches here: this means there was no WI-FI connection and now it came back
         TransactionsWorkSheet = self.db.worksheet("Transactions")
-        excel_file_path = 'local_db.xlsx'
+        excel_file_path = '/home/amermasarweh/Desktop/project/local_db.xlsx'
         self.no_wifi_connection = False  # update connection status
         TransactionsWorkSheet.clear()
         workbook = openpyxl.load_workbook(excel_file_path)
@@ -543,7 +544,7 @@ class StartPage(tk.Frame):
         self.controller = controller
 
         # Label with larger font and padding
-        label = tk.Label(self, text="Please Scan your ID Card or Enter Manually", font=("Arial", 20, "bold"))
+        label = tk.Label(self, text="Please Scan your ID Card or Enter Manually 🙂", font=("Arial", 20, "bold"))
         label.pack(side="top", fill="x", pady=20)  # Increased padding
 
         # Username label with smaller font
@@ -629,36 +630,36 @@ class MainUserPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        title_label = tk.Label(self, text="Hello, user" + ' 📚', font=('Helvetica', 35, 'bold'))
+        title_label = tk.Label(self, text="🤓 Hello, user" + ' 📚', font=('Helvetica', 35, 'bold'))
         title_label.pack(side="top", fill="x", pady=10)
 
         button_frame = tk.Frame(self)
         button_frame.pack(side="top", pady=10)
         borrow_book_button = tk.Button(button_frame,
-                                       text="Borrow" +"\n"+ " (➕📖) ",
+                                       text="Borrow" + " (➕📖) ",
                                        command=lambda: controller.goto_borrow_book_page(user_id=self.user_id),
-                                       bg="green", fg='white', font=('Helvetica', 25, 'bold'),
+                                       bg="green", fg='white', font=('Helvetica', 20, 'bold'),
                                        width=15, height=8)
-        borrow_book_button.pack(side="left", padx=10)
+        borrow_book_button.pack(side="left", padx=8)
 
         # Return button
         return_book_button = tk.Button(button_frame,
-                                       text="Return" +"\n"+" (➖📗) ",
+                                       text="Return" + " (➖📗) ",
                                        command=lambda: controller.goto_return_book_page(),
-                                       font=('Helvetica', 25, 'bold'),
+                                       font=('Helvetica', 20, 'bold'),
                                        bg="red", fg='white', width=15, height=8)
-        return_book_button.pack(side="left", padx=10)
+        return_book_button.pack(side="left", padx=8)
 
         # History button
         view_transactions_button = tk.Button(button_frame,
-                                             text="History" +"\n"+ " 📑",
+                                             text="My Books" + " 📑",
                                              command=lambda: controller.goto_user_status_page(
                                                  user_id=self.user_id,
                                                  prev_page="MainUserPage"),
                                              bg="blue", fg='white',
-                                             font=('Helvetica', 25, 'bold'),
+                                             font=('Helvetica', 20, 'bold'),
                                              width=15, height=8)
-        view_transactions_button.pack(side="left", padx=10)
+        view_transactions_button.pack(side="left", padx=8)
 
         # Logout button
         logout_button = tk.Button(self, text="Logout" + " 👋",
@@ -853,9 +854,6 @@ class AutomaticLogOutPage(tk.Frame):
                                fg="green", font=('Helvetica', 25, 'bold'))
         yes_button.pack(side="left", padx=10)
 
-        no_button = tk.Button(button_frame, text="No, log me out" + " ❌", command=self.leave,
-                              fg="red", font=('Helvetica', 25, 'bold'))
-        no_button.pack(side="right", padx=10)
 
     def stay(self):
         # here cancel the scheduled logout
@@ -878,8 +876,8 @@ class StatusBar(tk.Frame):
         self.time_label.pack(side="left", padx=20, pady=(30, 0))  # Increased padding
 
         # Date Label
-        self.date_label = tk.Label(self, font=("Helvetica", 20))  # Increased font size
-        self.date_label.pack(side="right", padx=20, pady=(35, 0))  # Increased padding
+        self.connection_status_label = tk.Label(self, font=("Helvetica", 20))  # Increased font size
+        self.connection_status_label.pack(side="right", padx=20, pady=(35, 0))  # Increased padding
 
         # Update time and date every second
         self.update_time()
@@ -887,7 +885,7 @@ class StatusBar(tk.Frame):
     def update_time(self):
         now = datetime.datetime.now()
         self.time_label.config(text=now.strftime("%H:%M"))
-        self.date_label.config(text=now.strftime("%Y-%m-%d"))
+        #self.date_label.config(text=now.strftime("%Y-%m-%d"))
         self.after(60 * 1000, self.update_time)  # Update every minute
 
 
