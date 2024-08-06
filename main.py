@@ -6,6 +6,7 @@ import openpyxl
 import time
 import socket
 
+
 class SampleApp(tk.Tk):
 
     def __init__(self, *args, **kwargs):
@@ -18,9 +19,8 @@ class SampleApp(tk.Tk):
         self.status_bar = StatusBar(self)
         self.status_bar.pack(side="top", fill="x")
         # Create and place the connection status label
-        #self.connection_status_label = tk.Label(self.status_bar, font=("Helvetica", 15))
-        #self.connection_status_label.pack(side="right", padx=15, pady=(30, 0))
-
+        # self.connection_status_label = tk.Label(self.status_bar, font=("Helvetica", 15))
+        # self.connection_status_label.pack(side="right", padx=15, pady=(30, 0))
 
         # the container is where we'll stack a bunch of frames
         # on top of each other, then the one we want visible
@@ -44,11 +44,9 @@ class SampleApp(tk.Tk):
             # will be the one that is visible.
             frame.grid(row=0, column=0, sticky="nsew")
 
-
         frame = self.frames['StartingUpPage']
         frame.tkraise()
         self.update()
-
 
         # connection to database:
         self.db_url = ""
@@ -74,7 +72,6 @@ class SampleApp(tk.Tk):
                 TransactionsWorkSheet.append_row(row_cells)
         # else: no_wifi_connection: status already states that
 
-
         # Variable to store Job Id of the currently scheduled logout job
         self.auto_logout_job = ""
         # Variable that stores the current state of the system to enable/disable auto logouts
@@ -89,7 +86,6 @@ class SampleApp(tk.Tk):
         self.Books = []
 
         self.Transactions = []
-
 
         self.frames["StartPage"].username_entry.focus_set()
         self.show_frame("StartPage")
@@ -148,7 +144,6 @@ class SampleApp(tk.Tk):
                     df.to_excel(writer, sheet_name=google_sheet[0], index=False)
         else:
             self.no_wifi_connection = True
-
 
         self.show_frame('StartPage')
 
@@ -224,12 +219,11 @@ class SampleApp(tk.Tk):
                 cell_value = a[0].value
                 if str(cell_value) == self.remove_leading(id):
                     self.no_wifi_connection = True
-                    self.show_notification('No WI-FI Connection!' + '\n' + 
-                    'Please add the book manually via Google Sheets')
+                    self.show_notification('No WI-FI Connection!' + '\n' +
+                                           'Please add the book manually via Google Sheets')
                     self.frames['StartPage'].username_entry.delete(0, tk.END)
                     self.show_frame('StartPage')
                     return
-            
 
             # if not the Admin, check if it's one of the standard users:
             users_worksheet = workbook["Users"]
@@ -248,8 +242,6 @@ class SampleApp(tk.Tk):
                 self.auto_logout_job = self.after(ms=60 * 1000, func=self.show_logout_warning)
                 self.frames['MainUserPage'].user_id = str(user_info)
                 self.show_frame("MainUserPage")
-
-
 
     def logout(self):
         ''' clear login info from previous users and go back to start page: '''
@@ -282,7 +274,7 @@ class SampleApp(tk.Tk):
             for t in self.Transactions:
                 if str(t['user_id']) == self.remove_leading(user_id):
                     listbox.insert('end',
-                                   "Book Name: " + str(t['book_name']) + "      Date of Borrow: " + str(t['date']))
+                                   " " + "Book: " + str(t['book_name']) + "      Date: " + str(t['date']) + "  ")
         else:
             self.no_wifi_connection = True
             excel_file_path = "/home/amermasarweh/Desktop/project/local_db.xlsx"
@@ -294,7 +286,6 @@ class SampleApp(tk.Tk):
                 cell_value = row[0].value
                 if str(cell_value) == self.remove_leading(user_id):
                     listbox.insert('end', "Book Name: " + str(row[2].value) + " Date: " + str(row[3].value))
-
 
         self.frames["UserStatusPage"].back_page = prev_page
         self.show_frame("UserStatusPage")
@@ -412,7 +403,7 @@ class SampleApp(tk.Tk):
             TransactionsWorkSheet = self.db.worksheet("Transactions")
             TransactionsWorkSheet.append_row(new_row_data)
 
-        else:   #  there is no WI-FI connection currently:
+        else:  # there is no WI-FI connection currently:
             self.no_wifi_connection = True
             excel_file_path = "/home/amermasarweh/Desktop/project/local_db.xlsx"
             # Open the workbook
@@ -449,7 +440,6 @@ class SampleApp(tk.Tk):
             new_row_data = [int(user_id), int(barcode), book_info, transaction_date_str]
             transactions_worksheet.append(new_row_data)
             workbook.save(filename=excel_file_path)
-
 
         self.show_notification(notification="Book Borrowed Successfully :)")
         self.frames["BorrowBookPage"].barcode_entry.delete(0, tk.END)
@@ -507,7 +497,7 @@ class SampleApp(tk.Tk):
 
     def show_notification(self, notification):
         self.frames['NotificationPage'].title_label.config(text='\n' + '\n' + '\n' + notification,
-         font=('Helvetica', 25, 'bold'))
+                                                           font=('Helvetica', 25, 'bold'))
         self.show_frame('NotificationPage')
         time.sleep(2)
 
@@ -520,7 +510,6 @@ class SampleApp(tk.Tk):
             self.gc = gspread.service_account(
                 filename="/home/amermasarweh/Desktop/project/service_account.json")
             self.db = self.gc.open_by_url(self.db_url)
-
 
         # if control reaches here: this means there was no WI-FI connection and now it came back
         TransactionsWorkSheet = self.db.worksheet("Transactions")
@@ -680,7 +669,7 @@ class UserStatusPage(tk.Frame):
             self,
             exportselection=False,
             selectmode=tk.SINGLE,
-            font=('Helvetica', 25, 'bold'))
+            font=('Helvetica', 20, 'bold'))
 
         self.user_transactions_listbox.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
 
@@ -694,6 +683,17 @@ class UserStatusPage(tk.Frame):
         self.user_transactions_listbox['yscrollcommand'] = scrollbar.set
 
         scrollbar.pack(side=tk.RIGHT, fill=tk.BOTH)
+
+        # link a scrollbar to a list
+        scrollbar_HORIZINAL = tk.Scrollbar(
+            self.user_transactions_listbox,
+            orient=tk.HORIZONTAL,
+            command=self.user_transactions_listbox.xview
+        )
+
+        self.user_transactions_listbox['xscrollcommand'] = scrollbar_HORIZINAL.set
+
+        scrollbar_HORIZINAL.pack(side=tk.BOTTOM, fill=tk.BOTH)
 
         self.back_page = "userInfoPage"
         back_button = tk.Button(self, text='🔙 ' + "Go Back",
@@ -709,6 +709,7 @@ class LoadingPage(tk.Frame):
         self.controller = controller
         title_label = tk.Label(self, text="Loading, Please Wait...", font=('Helvetica', 25, 'bold'))
         title_label.pack(side="top", fill="x", pady=10)
+
 
 class StartingUpPage(tk.Frame):
 
@@ -854,7 +855,6 @@ class AutomaticLogOutPage(tk.Frame):
                                fg="green", font=('Helvetica', 25, 'bold'))
         yes_button.pack(side="left", padx=10)
 
-
     def stay(self):
         # here cancel the scheduled logout
         self.after_cancel(id=self.sched_logout)
@@ -885,7 +885,7 @@ class StatusBar(tk.Frame):
     def update_time(self):
         now = datetime.datetime.now()
         self.time_label.config(text=now.strftime("%H:%M"))
-        #self.date_label.config(text=now.strftime("%Y-%m-%d"))
+        # self.date_label.config(text=now.strftime("%Y-%m-%d"))
         self.after(60 * 1000, self.update_time)  # Update every minute
 
 
