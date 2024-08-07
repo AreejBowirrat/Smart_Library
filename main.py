@@ -55,6 +55,7 @@ class SampleApp(tk.Tk):
         self.no_wifi_connection = True
         connected_to_wifi_currently = self.check_wifi()
         if connected_to_wifi_currently:
+            self.no_wifi_connection = False
             # initialize communication with the cloud database:
             self.db_url = "https://docs.google.com/spreadsheets/d/144bmhnqKytJMZwtBWR0IJ_UFbGy4gWWqukEfHV6laEU/edit?usp=sharing"
             self.gc = gspread.service_account(
@@ -259,8 +260,11 @@ class SampleApp(tk.Tk):
         self.show_frame('TransactionsLoadingPage')
         ########################################################################################
         # Empty the existing list to add fresh data:
-        listbox = self.frames["UserStatusPage"].user_transactions_listbox
-        listbox.delete(0, 'end')
+        book_name_listbox = self.frames["UserStatusPage"].user_book_names_listbox
+        book_name_listbox.delete(0, 'end')
+
+        date_listbox = self.frames["UserStatusPage"].user_date_listbox
+        date_listbox.delete(0, 'end')
 
         connected_to_wifi_currently = self.check_wifi()
         if connected_to_wifi_currently:
@@ -273,11 +277,11 @@ class SampleApp(tk.Tk):
 
             for t in self.Transactions:
                 if str(t['user_id']) == self.remove_leading(user_id):
-                    listbox.insert('end',
-                                   " " + "Book: " + str(t['book_name']) + "      Date: " + str(t['date']) + "  ")
+                    book_name_listbox.insert('end', str(t['book_name']))
+                    date_listbox.insert('end', str(t['date']))
         else:
             self.no_wifi_connection = True
-            excel_file_path = "/home/amermasarweh/Desktop/project/local_db.xlsx"
+            excel_file_path = "local_db.xlsx"
             # Open the workbook
             workbook = openpyxl.load_workbook(excel_file_path)
             # Select the worksheet (replace 'Sheet1' with the actual sheet name if different)
@@ -285,7 +289,8 @@ class SampleApp(tk.Tk):
             for row in transactions_worksheet.iter_rows(min_row=2, max_col=4):
                 cell_value = row[0].value
                 if str(cell_value) == self.remove_leading(user_id):
-                    listbox.insert('end', "Book Name: " + str(row[2].value) + " Date: " + str(row[3].value))
+                    # listbox.insert('end', "Book Name: " + str(row[2].value) + " Date: " + str(row[3].value))
+                    pass
 
         self.frames["UserStatusPage"].back_page = prev_page
         self.show_frame("UserStatusPage")
@@ -665,41 +670,73 @@ class UserStatusPage(tk.Frame):
         title_label = tk.Label(self, text="Books You've Borrowed", font=('Helvetica', 30, 'bold'))
         title_label.pack(side="top", fill="x", pady=10)
 
-        self.user_transactions_listbox = tk.Listbox(
-            self,
+        list_frame = tk.Frame(self)
+        list_frame.pack(side='top', fill="x")
+
+        self.user_book_names_listbox = tk.Listbox(
+            list_frame,
             exportselection=False,
             selectmode=tk.SINGLE,
             font=('Helvetica', 20, 'bold'))
 
-        self.user_transactions_listbox.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
+        #self.user_book_names_listbox.pack(side=tk.LEFT, fill=tk.Y)
+        self.user_book_names_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        # link a scrollbar to a list
-        scrollbar = tk.Scrollbar(
-            self.user_transactions_listbox,
-            orient=tk.VERTICAL,
-            command=self.user_transactions_listbox.yview
+        # Create the second listbox
+        self.user_date_listbox = tk.Listbox(list_frame,
+                                            exportselection=False,
+                                            selectmode=tk.SINGLE,
+                                            font=('Helvetica', 20, 'bold'))
+        self.user_date_listbox.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+
+        # Create a shared scrollbar
+        scrollbar = tk.Scrollbar(list_frame, orient=tk.VERTICAL,
+                                 command=lambda *args: (self.user_book_names_listbox.yview(*args),
+                                                        self.user_date_listbox.yview(*args)))
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Connect listboxes to the scrollbar
+        self.user_book_names_listbox.config(yscrollcommand=scrollbar.set)
+        self.user_date_listbox.config(yscrollcommand=scrollbar.set)
+
+        # Create up and down buttons
+        buttom_frame = tk.Frame(self)
+        buttom_frame.pack(side='top', fill="x")
+        button_up = tk.Button(
+            buttom_frame,
+            text="⬆️",
+            command=self.scroll_up,
+            font=('Helvetica', 30)
         )
-
-        self.user_transactions_listbox['yscrollcommand'] = scrollbar.set
-
-        scrollbar.pack(side=tk.RIGHT, fill=tk.BOTH)
-
-        # link a scrollbar to a list
-        scrollbar_HORIZINAL = tk.Scrollbar(
-            self.user_transactions_listbox,
-            orient=tk.HORIZONTAL,
-            command=self.user_transactions_listbox.xview
+        button_down = tk.Button(
+            buttom_frame,
+            text="⬇️",
+            command=self.scroll_down,
+            font=('Helvetica', 30)
         )
+        button_down.pack(side=tk.LEFT, padx=10)
 
-        self.user_transactions_listbox['xscrollcommand'] = scrollbar_HORIZINAL.set
+        button_go_back = tk.Button(
+        buttom_frame, text = '🔙 ' + "Go Back",
+        command = lambda: controller.show_frame(self.back_page),
+        font = ('Helvetica', 30))
+        button_go_back.pack(side=tk.LEFT, padx=200)
 
-        scrollbar_HORIZINAL.pack(side=tk.BOTTOM, fill=tk.BOTH)
+        button_up.pack(side=tk.RIGHT, padx=10)
 
-        self.back_page = "userInfoPage"
-        back_button = tk.Button(self, text='🔙 ' + "Go Back",
-                                command=lambda: controller.show_frame(self.back_page),
-                                font=('Helvetica', 30))
-        back_button.pack(pady=10)
+        # self.back_page = "userInfoPage"
+        # back_button = tk.Button(self, text='🔙 ' + "Go Back",
+        #                         command=lambda: controller.show_frame(self.back_page),
+        #                         font=('Helvetica', 30))
+        # back_button.pack(pady=10)
+
+    def scroll_up(self):
+        self.user_book_names_listbox.yview("scroll", "-1", "units")
+        self.user_date_listbox.yview("scroll", "-1", "units")
+
+    def scroll_down(self):
+        self.user_book_names_listbox.yview("scroll", "1", "units")
+        self.user_date_listbox.yview("scroll", "1", "units")
 
 
 class LoadingPage(tk.Frame):
@@ -875,7 +912,7 @@ class StatusBar(tk.Frame):
         self.time_label = tk.Label(self, font=("Helvetica", 20))  # Increased font size
         self.time_label.pack(side="left", padx=20, pady=(30, 0))  # Increased padding
 
-        # Date Label
+        # WI-FI connection Label
         self.connection_status_label = tk.Label(self, font=("Helvetica", 20))  # Increased font size
         self.connection_status_label.pack(side="right", padx=20, pady=(35, 0))  # Increased padding
 
