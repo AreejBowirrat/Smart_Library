@@ -59,12 +59,12 @@ class SampleApp(tk.Tk):
             # initialize communication with the cloud database:
             self.db_url = "https://docs.google.com/spreadsheets/d/144bmhnqKytJMZwtBWR0IJ_UFbGy4gWWqukEfHV6laEU/edit?usp=sharing"
             self.gc = gspread.service_account(
-                filename="/home/amermasarweh/Desktop/project/service_account.json")
+                filename="service_account.json")
             self.db = self.gc.open_by_url(self.db_url)
             # Synchorinize with local database:
             TransactionsWorkSheet = self.db.worksheet("Transactions")
             TransactionsWorkSheet.clear()
-            workbook = openpyxl.load_workbook('/home/amermasarweh/Desktop/project/local_db.xlsx')
+            workbook = openpyxl.load_workbook('local_db.xlsx')
 
             # Select the worksheet (replace 'Sheet1' with the actual sheet name if different)
             transactions_worksheet = workbook["Transactions"]
@@ -87,6 +87,9 @@ class SampleApp(tk.Tk):
         self.Books = []
 
         self.Transactions = []
+
+        ##########################
+        self.Log = []
 
         self.frames["StartPage"].username_entry.focus_set()
         self.show_frame("StartPage")
@@ -130,9 +133,9 @@ class SampleApp(tk.Tk):
                 self.no_wifi_connection = False
 
             # if there's a WI-FI connection, load data from Google Sheets to local Excel file:
-            sheets = ["Users", "Books", "Transactions", "Admins"]
+            sheets = ["Users", "Books", "Admins", "Transactions"]
             google_sheets = [(sheet_name, self.db.worksheet(sheet_name).id) for sheet_name in sheets]
-            excel_file = "/home/amermasarweh/Desktop/project/local_db.xlsx"  # Replace with path to your Excel file
+            excel_file = "local_db.xlsx"  # Replace with path to your Excel file
             with pd.ExcelWriter(
                     path=excel_file,
                     mode="w",
@@ -209,7 +212,7 @@ class SampleApp(tk.Tk):
 
         else:  # In case there's no WI-FI connection:
             self.no_wifi_connection = True
-            excel_file_path = "/home/amermasarweh/Desktop/project/local_db.xlsx"
+            excel_file_path = "local_db.xlsx"
             # Open the workbook
             workbook = openpyxl.load_workbook(excel_file_path)
 
@@ -287,10 +290,11 @@ class SampleApp(tk.Tk):
             # Select the worksheet (replace 'Sheet1' with the actual sheet name if different)
             transactions_worksheet = workbook["Transactions"]
             for row in transactions_worksheet.iter_rows(min_row=2, max_col=4):
-                cell_value = row[0].value
-                if str(cell_value) == self.remove_leading(user_id):
-                    # listbox.insert('end', "Book Name: " + str(row[2].value) + " Date: " + str(row[3].value))
-                    pass
+                values = [e.value for e in row]
+                id_value = values[0]
+                if str(id_value) == self.remove_leading(user_id):
+                    book_name_listbox.insert('end', str(values[2]))
+                    date_listbox.insert('end', str(values[3]))
 
         self.frames["UserStatusPage"].back_page = prev_page
         self.show_frame("UserStatusPage")
@@ -323,10 +327,14 @@ class SampleApp(tk.Tk):
 
             self.Transactions = self.db.worksheet("Transactions").get_all_records()
             TransactionsTable = self.db.worksheet("Transactions")
+            user_id = -1
+            book_name = ""
             index_to_delete = -1
             for index, t in enumerate(self.Transactions):
                 if str(t['barcode']) == self.remove_leading(barcode):
                     index_to_delete = index
+                    user_id = t['user_id']
+                    book_name = t['book_name']
                     break
             if index_to_delete == -1:
                 self.show_notification(notification="This Book Copy Has Not Been Borrowed Before!")
@@ -335,20 +343,30 @@ class SampleApp(tk.Tk):
                 self.show_frame('ReturnBookPage')
                 return
             TransactionsTable.delete_rows(index_to_delete + 2, index_to_delete + 2)
+            ############################################################################
+            transaction_date = datetime.date.today()
+            transaction_date_str = transaction_date.strftime("%B %d, %Y")
+            Log_row = [int(user_id), int(barcode), book_name, transaction_date_str, "return"]
+            LogWorkSheet = self.db.worksheet("Log")
+            LogWorkSheet.append_row(Log_row)
 
         else:
             self.no_wifi_connection = True
-            excel_file_path = "/home/amermasarweh/Desktop/project/local_db.xlsx"
+            excel_file_path = "local_db.xlsx"
             # Open the workbook
             workbook = openpyxl.load_workbook(excel_file_path)
 
             # Select the worksheet (replace 'Sheet1' with the actual sheet name if different)
             transactions_worksheet = workbook["Transactions"]
+            user_id = -1
+            book_name = ""
             index_to_delete = -1
-            for index, row in enumerate(transactions_worksheet.iter_rows(min_row=2, max_col=2)):
+            for index, row in enumerate(transactions_worksheet.iter_rows(min_row=2, max_col=3)):
                 cell_value = row[1].value
                 if str(cell_value) == self.remove_leading(barcode):
                     index_to_delete = index
+                    user_id = row[0].value
+                    book_name = row[2].value
                     break
             if index_to_delete == -1:
                 self.show_notification(notification="This Book Copy Has Not Been Borrowed Before!")
@@ -357,6 +375,12 @@ class SampleApp(tk.Tk):
                 self.show_frame('ReturnBookPage')
                 return
             transactions_worksheet.delete_rows(idx=index_to_delete + 2, amount=1)
+            ############################################################################
+            transaction_date = datetime.date.today()
+            transaction_date_str = transaction_date.strftime("%B %d, %Y")
+            Log_row = [int(user_id), int(barcode), book_name, transaction_date_str, "return"]
+            LogWorkSheet = self.db.worksheet("Log")
+            LogWorkSheet.append_row(Log_row)
             workbook.save(filename=excel_file_path)
 
         self.show_notification(notification="Book Returned Successfully!")
@@ -407,16 +431,22 @@ class SampleApp(tk.Tk):
             new_row_data = [int(user_id), int(barcode), book_info['book_name'], transaction_date_str]
             TransactionsWorkSheet = self.db.worksheet("Transactions")
             TransactionsWorkSheet.append_row(new_row_data)
+            ###########################################################################################
+            Log_row = new_row_data + ["borrow"]
+            LogWorkSheet = self.db.worksheet("Log")
+            LogWorkSheet.append_row(Log_row)
+
 
         else:  # there is no WI-FI connection currently:
             self.no_wifi_connection = True
-            excel_file_path = "/home/amermasarweh/Desktop/project/local_db.xlsx"
+            excel_file_path = "local_db.xlsx"
             # Open the workbook
             workbook = openpyxl.load_workbook(excel_file_path)
 
             # Select the worksheet (replace 'Sheet1' with the actual sheet name if different)
             books_worksheet = workbook["Books"]
             transactions_worksheet = workbook["Transactions"]
+            log_worksheet = workbook["Log"]
 
             book_info = None
             for row in books_worksheet.iter_rows(min_row=2, max_col=2):  # Skip the header row (assuming row 1)
@@ -430,8 +460,8 @@ class SampleApp(tk.Tk):
                 self.frames['BorrowBookPage'].barcode_entry.focus_set()
                 self.show_frame('BorrowBookPage')
                 return
-            for row in transactions_worksheet.iter_rows(min_row=2, max_col=1):
-                cell_value = row[0].value
+            for row in transactions_worksheet.iter_rows(min_row=2, max_col=2):
+                cell_value = row[1].value
                 if str(cell_value) == self.remove_leading(barcode):
                     self.show_notification(notification="This Book Copy has not been returned yet!")
                     self.frames['BorrowBookPage'].barcode_entry.delete(0, tk.END)
@@ -444,6 +474,7 @@ class SampleApp(tk.Tk):
             transaction_date_str = transaction_date.strftime("%B %d, %Y")
             new_row_data = [int(user_id), int(barcode), book_info, transaction_date_str]
             transactions_worksheet.append(new_row_data)
+            log_worksheet.append(new_row_data + ["borrow"])
             workbook.save(filename=excel_file_path)
 
         self.show_notification(notification="Book Borrowed Successfully :)")
@@ -518,16 +549,24 @@ class SampleApp(tk.Tk):
 
         # if control reaches here: this means there was no WI-FI connection and now it came back
         TransactionsWorkSheet = self.db.worksheet("Transactions")
-        excel_file_path = '/home/amermasarweh/Desktop/project/local_db.xlsx'
+        LogWorkSheet = self.db.worksheet("Log")
+        excel_file_path = 'local_db.xlsx'
         self.no_wifi_connection = False  # update connection status
         TransactionsWorkSheet.clear()
         workbook = openpyxl.load_workbook(excel_file_path)
 
         # Select the worksheet
         transactions_worksheet = workbook["Transactions"]
+        log_worksheet = workbook["Log"]
         for row in transactions_worksheet.iter_rows(min_row=1, max_col=4):
             row_cells = [cell.value for cell in row]
             TransactionsWorkSheet.append_row(row_cells)
+        for row in log_worksheet.iter_rows(min_row=2, max_col=5):
+            row_cells = [cell.value for cell in row]
+            LogWorkSheet.append_row(row_cells)
+        log_worksheet.delete_rows(idx=2, amount=log_worksheet.max_row-1)
+        workbook.save(excel_file_path)
+
 
 
 class StartPage(tk.Frame):
@@ -564,7 +603,7 @@ class StartPage(tk.Frame):
         for row_index, row in enumerate(button_grid):
             for col_index, number in enumerate(row):
                 if number == 'Clear':
-                    button = tk.Button(button_frame, text='🗑️ ' + number, bg='red', fg='white',
+                    button = tk.Button(button_frame, text='🗑 ' + number, bg='red', fg='white',
                                        command=self.handle_clear_button_click,
                                        font=("Helvetica", 20))
                 elif number == 'Login':
@@ -627,6 +666,8 @@ class MainUserPage(tk.Frame):
         title_label = tk.Label(self, text="🤓 Hello, user" + ' 📚', font=('Helvetica', 35, 'bold'))
         title_label.pack(side="top", fill="x", pady=10)
 
+        self.user_id = ""
+        self.back_page = ""
         button_frame = tk.Frame(self)
         button_frame.pack(side="top", pady=10)
         borrow_book_button = tk.Button(button_frame,
@@ -679,7 +720,7 @@ class UserStatusPage(tk.Frame):
             selectmode=tk.SINGLE,
             font=('Helvetica', 20, 'bold'))
 
-        #self.user_book_names_listbox.pack(side=tk.LEFT, fill=tk.Y)
+        # self.user_book_names_listbox.pack(side=tk.LEFT, fill=tk.Y)
         self.user_book_names_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         # Create the second listbox
@@ -704,22 +745,23 @@ class UserStatusPage(tk.Frame):
         buttom_frame.pack(side='top', fill="x")
         button_up = tk.Button(
             buttom_frame,
-            text="⬆️",
+            text="⬆",
             command=self.scroll_up,
             font=('Helvetica', 30)
         )
         button_down = tk.Button(
             buttom_frame,
-            text="⬇️",
+            text="⬇",
             command=self.scroll_down,
             font=('Helvetica', 30)
         )
         button_down.pack(side=tk.LEFT, padx=10)
 
+        self.back_page = ""
         button_go_back = tk.Button(
-        buttom_frame, text = '🔙 ' + "Go Back",
-        command = lambda: controller.show_frame(self.back_page),
-        font = ('Helvetica', 30))
+            buttom_frame, text='🔙 ' + "Go Back",
+            command=lambda: controller.show_frame(self.back_page),
+            font=('Helvetica', 30))
         button_go_back.pack(side=tk.LEFT, padx=200)
 
         button_up.pack(side=tk.RIGHT, padx=10)
